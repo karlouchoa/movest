@@ -1,4 +1,6 @@
 from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import text
 
@@ -17,6 +19,38 @@ def _replace_trigger_target(definition, origem, destino):
     origem_plain = f"ON dbo.{origem}"
     destino_plain = f"ON dbo.{destino}"
     return definition.replace(origem_bracket, destino_bracket).replace(origem_plain, destino_plain)
+
+
+def _salvar_scripts_replicacao(tabela_origem, tabela_destino, drop_scripts, create_scripts):
+    pasta_saida = Path("scripts_gerados")
+    pasta_saida.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    caminho_saida = pasta_saida / f"replicar_objetos_{tabela_origem}_para_{tabela_destino}_{timestamp}.sql"
+
+    secoes = [
+        f"-- Origem: dbo.{tabela_origem}",
+        f"-- Destino: dbo.{tabela_destino}",
+        f"-- Gerado em: {datetime.now().isoformat()}",
+        "",
+        "-- DROP NA TABELA RENOMEADA",
+        "GO",
+    ]
+
+    for script in drop_scripts:
+        secoes.append(script.strip())
+        secoes.append("GO")
+
+    secoes.append("")
+    secoes.append("-- CREATE NA NOVA T_MOVEST")
+    secoes.append("GO")
+
+    for script in create_scripts:
+        secoes.append(script.strip())
+        secoes.append("GO")
+
+    caminho_saida.write_text("\n".join(secoes) + "\n", encoding="utf-8")
+    return caminho_saida
 
 
 def recriar_indices(engine):
@@ -304,6 +338,14 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 f"CREATE {unique_sql}{index_type} INDEX {_q(name)} "
                 f"ON {_table_name(tabela_destino)} ({', '.join(item['keys'])}){include_sql}{filter_sql}"
             )
+
+        caminho_scripts = _salvar_scripts_replicacao(
+            tabela_origem,
+            tabela_destino,
+            drop_scripts,
+            create_scripts,
+        )
+        print(f"Scripts salvos em: {caminho_scripts}")
 
         for script in drop_scripts:
             conn.execute(text(script))
