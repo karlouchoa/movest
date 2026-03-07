@@ -270,13 +270,18 @@ def main():
         res_cols = conn.execute(text("SELECT TOP 0 * FROM T_MOVEST"))
         colunas_destino = list(res_cols.keys())
 
+        print("   Preparando colunas para insercao...")
         df_novos = preparar_colunas_para_insert(df_novos, colunas_destino)
         df_novos = preencher_nrlan(df_novos, conn, colunas_destino)
         df_para_gravar = df_novos[[c for c in df_novos.columns if c in colunas_destino]].copy()
         df_para_gravar = normalizar_tipos_para_insert(df_para_gravar, conn)
+        print(f"   Inserindo {len(df_para_gravar)} registros em T_MOVEST...")
         df_para_gravar.to_sql("T_MOVEST", conn, if_exists="append", index=False, chunksize=1000)
+        print("   Insercao em T_MOVEST concluida.")
 
+        print(f"   Atualizando {len(saldos_finais_item_emp)} saldos em t_saldoit...")
         atualizar_saldos_finais(conn, saldos_finais_item_emp)
+        print("   Atualizacao de t_saldoit concluida.")
 
     print("7) Replicando indices, constraints, chaves e triggers para a nova T_MOVEST...")
     replicar_estrutura_t_movest(engine_atual, tabela_inventario)

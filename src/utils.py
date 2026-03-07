@@ -122,11 +122,17 @@ def recriar_indices(engine):
         )
 
 
-def atualizar_saldos_finais(conn, saldos_finais_item_emp):
-    for (cditem, cdemp), saldo in saldos_finais_item_emp.items():
+def atualizar_saldos_finais(conn, saldos_finais_item_emp, chunk_size=1000):
+    atualizacoes = [
+        {"s": saldo, "i": cditem, "e": cdemp}
+        for (cditem, cdemp), saldo in saldos_finais_item_emp.items()
+    ]
+
+    for inicio in range(0, len(atualizacoes), chunk_size):
+        lote = atualizacoes[inicio : inicio + chunk_size]
         conn.execute(
             text("UPDATE t_saldoit SET saldo = :s WHERE cditem = :i AND cdemp = :e"),
-            {"s": saldo, "i": cditem, "e": cdemp},
+            lote,
         )
 
 
