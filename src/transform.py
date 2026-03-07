@@ -75,7 +75,12 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
         """
     SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc,
            iv.cdemp_iv as cdemp, iv.cditem_iv as cditem, iv.qtdeSol_iv as qtde,
-           'V' as especie, CASE WHEN v.status_v = 'C' THEN 'E' ELSE iv.st END as st,
+           CASE WHEN v.TrocReq = 'S' THEN 'T' ELSE 'V' END as especie,
+           CASE
+               WHEN v.TrocReq = 'S' THEN iv.st
+               WHEN v.status_v = 'C' THEN 'E'
+               ELSE iv.st
+           END as st,
            1 as clifor, 1 as empfor, 1 as empitem,
            v.obsven_v as obs, CAST(v.obsven_v AS VARCHAR(255)) as obsit, v.codusu_v as codusu,
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
@@ -99,6 +104,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
       AND v.status_v = 'C'
+      AND ISNULL(v.TrocReq, 'N') <> 'S'
       AND NOT EXISTS (
           SELECT 1
           FROM T_MOVEST m

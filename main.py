@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from src.database import get_engine
 from src.transform import extrair_movimentacoes_novas
-from src.utils import atualizar_saldos_finais, recriar_indices
+from src.utils import atualizar_saldos_finais, replicar_estrutura_t_movest
 
 
 def solicitar_nomes_bancos():
@@ -59,8 +59,11 @@ def preparar_t_movest_destino(engine_base, engine_atual):
 
 def obter_data_corte_base(engine_base):
     with engine_base.connect() as conn:
-        data_corte = conn.execute(text("SELECT MAX(DataLan) FROM T_MOVEST")).scalar()
-    return data_corte or datetime(1900, 1, 1)
+        data_maxima = conn.execute(text("SELECT MAX(DataLan) FROM T_MOVEST")).scalar()
+        data_corte = conn.execute(
+            text("SELECT MAX(DataLan) FROM T_MOVEST WHERE DataLan <= GETDATE()")
+        ).scalar()
+    return (data_corte or datetime(1900, 1, 1)), data_maxima
 
 
 def preparar_colunas_para_insert(df_novos, colunas_destino):
@@ -205,7 +208,12 @@ def main():
         print("T_MOVEST nao existia. Nova T_MOVEST criada a partir do Bancobase.")
 
     print("2) Lendo data inicial no Bancobase.T_MOVEST...")
-    data_corte = obter_data_corte_base(engine_base)
+    data_corte, data_maxima_base = obter_data_corte_base(engine_base)
+    if data_maxima_base and data_maxima_base > datetime.now():
+        print(
+            f"Data maxima futura detectada na T_MOVEST base ({data_maxima_base}). "
+            f"Usando maior DataLan valida ate hoje: {data_corte}"
+        )
     print(f"Data de corte: {data_corte}")
 
     print("3) Carregando saldos iniciais do Bancobase.t_saldoit...")
@@ -259,14 +267,14 @@ def main():
 
         df_novos = preparar_colunas_para_insert(df_novos, colunas_destino)
         df_novos = preencher_nrlan(df_novos, conn, colunas_destino)
-        df_para_gravar = df_novos[[c for c in df_novos.columns if c in colunas_destino]]
+        df_para_gravar = df_novos[[c for c in df_novos.columns if c in colunas_destino]].copy()
         df_para_gravar = normalizar_tipos_para_insert(df_para_gravar, conn)
         df_para_gravar.to_sql("T_MOVEST", conn, if_exists="append", index=False, chunksize=1000)
 
         atualizar_saldos_finais(conn, saldos_finais_item_emp)
 
-    print("7) Recriando indices de T_MOVEST...")
-    recriar_indices(engine_atual)
+    print("7) Replicando indices, constraints, chaves e triggers para a nova T_MOVEST...")
+    replicar_estrutura_t_movest(engine_atual, tabela_inventario)
 
     print("Concluido com sucesso.")
 
