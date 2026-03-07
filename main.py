@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pandas as pd
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.database import get_engine
 from src.transform import extrair_movimentacoes_novas
@@ -18,6 +19,17 @@ def solicitar_nomes_bancos():
         raise ValueError("O nome do banco atual nao pode ficar vazio.")
 
     return banco_base, banco_atual
+
+
+def validar_conexao(engine, nome_banco, papel):
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise RuntimeError(
+            f"Nao foi possivel conectar ao banco {papel} '{nome_banco}'. "
+            "Verifique o nome informado, a permissao do usuario e se o banco existe no servidor."
+        ) from exc
 
 
 def preparar_t_movest_destino(engine_base, engine_atual):
@@ -181,6 +193,8 @@ def main():
     banco_base, banco_atual = solicitar_nomes_bancos()
     engine_base = get_engine(banco_base)
     engine_atual = get_engine(banco_atual)
+    validar_conexao(engine_base, banco_base, "base")
+    validar_conexao(engine_atual, banco_atual, "atual")
 
     print("1) Preparando T_MOVEST no Bancoatual...")
     tabela_inventario = preparar_t_movest_destino(engine_base, engine_atual)
