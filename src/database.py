@@ -1,13 +1,16 @@
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import URL
 
 
-def get_engine(db_name):
+def get_engine(server_name, db_name):
     conn_str = (
-        f"mssql+pyodbc://localhost/{db_name}?"
-        "driver=ODBC+Driver+17+for+SQL+Server&"
-        "trusted_connection=yes"
+        "DRIVER={ODBC Driver 17 for SQL Server};"
+        f"SERVER={server_name};"
+        f"DATABASE={db_name};"
+        "Trusted_Connection=yes;"
+        "TrustServerCertificate=yes;"
     )
-    engine = create_engine(conn_str)
+    engine = create_engine(URL.create("mssql+pyodbc", query={"odbc_connect": conn_str}))
     
     @event.listens_for(engine, "before_cursor_execute")
     def receive_before_cursor_execute(conn, cursor, statement, parameters, context, executemany):

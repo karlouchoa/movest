@@ -9,7 +9,8 @@ from src.transform import extrair_movimentacoes_novas
 from src.utils import atualizar_saldos_finais, replicar_estrutura_t_movest
 
 
-def solicitar_nomes_bancos():
+def solicitar_parametros_conexao():
+    servidor = input("Informe o servidor/instancia SQL [localhost]: ").strip() or "localhost"
     banco_base = input("Informe o nome do banco base (origem): ").strip()
     banco_atual = input("Informe o nome do banco atual (destino): ").strip()
 
@@ -18,17 +19,17 @@ def solicitar_nomes_bancos():
     if not banco_atual:
         raise ValueError("O nome do banco atual nao pode ficar vazio.")
 
-    return banco_base, banco_atual
+    return servidor, banco_base, banco_atual
 
 
-def validar_conexao(engine, nome_banco, papel):
+def validar_conexao(engine, nome_banco, papel, servidor):
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except SQLAlchemyError as exc:
         raise RuntimeError(
-            f"Nao foi possivel conectar ao banco {papel} '{nome_banco}'. "
-            "Verifique o nome informado, a permissao do usuario e se o banco existe no servidor."
+            f"Nao foi possivel conectar ao banco {papel} '{nome_banco}' no servidor '{servidor}'. "
+            "Verifique o nome da instancia, o nome do banco, a permissao do usuario e se o SQL Server aceita conexoes."
         ) from exc
 
 
@@ -193,11 +194,11 @@ def calcular_delta(qtde, st):
 
 
 def main():
-    banco_base, banco_atual = solicitar_nomes_bancos()
-    engine_base = get_engine(banco_base)
-    engine_atual = get_engine(banco_atual)
-    validar_conexao(engine_base, banco_base, "base")
-    validar_conexao(engine_atual, banco_atual, "atual")
+    servidor, banco_base, banco_atual = solicitar_parametros_conexao()
+    engine_base = get_engine(servidor, banco_base)
+    engine_atual = get_engine(servidor, banco_atual)
+    validar_conexao(engine_base, banco_base, "base", servidor)
+    validar_conexao(engine_atual, banco_atual, "atual", servidor)
 
     print("1) Preparando T_MOVEST no Bancoatual...")
     tabela_inventario = preparar_t_movest_destino(engine_base, engine_atual)
