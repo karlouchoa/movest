@@ -21,6 +21,29 @@ def _replace_trigger_target(definition, origem, destino):
     return definition.replace(origem_bracket, destino_bracket).replace(origem_plain, destino_plain)
 
 
+def _classificar_tipo_indice(type_desc):
+    valor = (type_desc or "").upper().strip()
+    if valor == "CLUSTERED":
+        return "CLUSTERED"
+    return "NONCLUSTERED"
+
+
+def _tem_indice_clusterizado(conn, tabela):
+    row = conn.execute(
+        text(
+            """
+            SELECT TOP 1 1
+            FROM sys.indexes
+            WHERE object_id = OBJECT_ID(:table_name)
+              AND type_desc = 'CLUSTERED'
+              AND is_hypothetical = 0
+            """
+        ),
+        {"table_name": f"dbo.{tabela}"},
+    ).scalar()
+    return bool(row)
+
+
 def _salvar_scripts_replicacao(tabela_origem, tabela_destino, drop_scripts, create_scripts):
     pasta_saida = Path("scripts_gerados")
     pasta_saida.mkdir(parents=True, exist_ok=True)
@@ -115,6 +138,8 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
     origem_full = f"dbo.{tabela_origem}"
 
     with engine.begin() as conn:
+        destino_tem_clustered = _tem_indice_clusterizado(conn, tabela_destino)
+
         default_rows = conn.execute(
             text(
                 """
@@ -300,7 +325,11 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
         for name, cols in key_map.items():
             key_type, index_type = key_meta[name]
             constraint_type = "PRIMARY KEY" if key_type == "PK_CONSTRAINT" else "UNIQUE"
-            clustered = "CLUSTERED" if "CLUSTERED" in index_type else "NONCLUSTERED"
+            clustered = _classificar_tipo_indice(index_type)
+            if clustered == "CLUSTERED" and destino_tem_clustered:
+                clustered = "NONCLUSTERED"
+            elif clustered == "CLUSTERED":
+                destino_tem_clustered = True
 
             drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
             create_scripts.append(
@@ -329,7 +358,11 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
         for name, item in index_map.items():
             type_desc, is_unique, filter_definition = item["meta"]
             unique_sql = "UNIQUE " if is_unique else ""
-            index_type = "CLUSTERED" if "CLUSTERED" in type_desc else "NONCLUSTERED"
+            index_type = _classificar_tipo_indice(type_desc)
+            if index_type == "CLUSTERED" and destino_tem_clustered:
+                index_type = "NONCLUSTERED"
+            elif index_type == "CLUSTERED":
+                destino_tem_clustered = True
             include_sql = f" INCLUDE ({', '.join(item['includes'])})" if item["includes"] else ""
             filter_sql = f" WHERE {filter_definition}" if filter_definition else ""
 
