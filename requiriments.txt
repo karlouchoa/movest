@@ -1,0 +1,1 @@
+# Lista de bibliotecas (pandas, sqlalchemy, pyodbc)

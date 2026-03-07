@@ -1,0 +1,4091 @@
+{
+  "database": "Bancoatual",
+  "schema": "dbo",
+  "generated_at_utc": "2026-03-06T04:33:35.906355+00:00",
+  "tables": {
+    "t_movest": {
+      "columns": [
+        {
+          "name": "nrlan",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdemp",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "data",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "numdoc",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "especie",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cditem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "qtde",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "valor",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "st",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "saldoant",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "numof",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "clifor",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codusu",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "datadoc",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "SldAntEmp",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Preco",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Desconto",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "custo",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obs",
+          "type": "VARCHAR(100) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ip",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empitem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empven",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empmov",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obsit",
+          "type": "VARCHAR(255) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empfor",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NrLanExt",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DataLan",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "IDSession",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "UserRest",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "SEQIT",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "COMPRA",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ID",
+          "type": "UNIQUEIDENTIFIER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "isdeleted",
+          "type": "BIT",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "createdat",
+          "type": "DATETIME2",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "updatedat",
+          "type": "DATETIME2",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        }
+      ],
+      "primary_key": {
+        "name": null,
+        "constrained_columns": []
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [],
+      "check_constraints": []
+    },
+    "t_saldoit": {
+      "columns": [
+        {
+          "name": "cdemp",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "((1))",
+          "autoincrement": false
+        },
+        {
+          "name": "cditem",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "saldo",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "ultcmp",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ultfor",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "endest",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empitem",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "estmin",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DtAltSld",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "enviar",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CDSALDOIT",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": true
+        }
+      ],
+      "primary_key": {
+        "constrained_columns": [
+          "CDSALDOIT"
+        ],
+        "name": "PK_t_saldoit_final",
+        "dialect_options": {
+          "mssql_clustered": 1
+        }
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [
+        {
+          "name": "idxcditem",
+          "unique": false,
+          "column_names": [
+            "cditem",
+            "empitem"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        }
+      ],
+      "check_constraints": []
+    },
+    "T_MOVEST_BKP": {
+      "columns": [
+        {
+          "name": "nrlan",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": true
+        },
+        {
+          "name": "cdemp",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "data",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "numdoc",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "especie",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cditem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "qtde",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "valor",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "st",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "saldoant",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "numof",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "clifor",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codusu",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "datadoc",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "SldAntEmp",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Preco",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Desconto",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "custo",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obs",
+          "type": "VARCHAR(100) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ip",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empitem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empven",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empmov",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obsit",
+          "type": "VARCHAR(255) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empfor",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NrLanExt",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DataLan",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "IDSession",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "UserRest",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "SEQIT",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "COMPRA",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "isdeleted",
+          "type": "BIT",
+          "nullable": false,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "createdat",
+          "type": "DATETIME2",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "updatedat",
+          "type": "DATETIME2",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        }
+      ],
+      "primary_key": {
+        "constrained_columns": [
+          "nrlan"
+        ],
+        "name": "PK_t_movest_final",
+        "dialect_options": {
+          "mssql_clustered": 1
+        }
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [
+        {
+          "name": "idx_cditem",
+          "unique": false,
+          "column_names": [
+            "cditem",
+            "empitem"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        },
+        {
+          "name": "idx_data",
+          "unique": false,
+          "column_names": [
+            "data"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        },
+        {
+          "name": "idx_numdoc",
+          "unique": false,
+          "column_names": [
+            "numdoc",
+            "empven"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        }
+      ],
+      "check_constraints": []
+    },
+    "t_vendas": {
+      "columns": [
+        {
+          "name": "autocod_V",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": true
+        },
+        {
+          "name": "nrven_v",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdemp_v",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "emisven_v",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdcli_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "cdfpg_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "txfin_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "restringe_v",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdven_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "nrpedcli_v",
+          "type": "VARCHAR(30) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "prior_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "przent_v",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "tpent",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdmid",
+          "type": "SMALLINT",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "totpro_V",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "obsven_v",
+          "type": "VARCHAR(200) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pdesc_v",
+          "type": "DECIMAL(18, 10)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "vdesc_v",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "totven_v",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "tpven_v",
+          "type": "CHAR(3) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('BOL')",
+          "autoincrement": false
+        },
+        {
+          "name": "nrnfven_v",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('0')",
+          "autoincrement": false
+        },
+        {
+          "name": "emisnf_v",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdcfop",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "bcalc_c",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "vlicms_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "cdtrsp_v",
+          "type": "VARCHAR(6) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "tpfre",
+          "type": "CHAR(5) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vlfrete_v",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "nrvolum_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "pesovol_v",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "dtsainf_v",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "hrsainf_v",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "status_v",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "dtStat_v",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "dtcancnf_v",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codusu_v",
+          "type": "CHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codsep_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "horsep_v",
+          "type": "VARCHAR(8) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codconf_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "horconf_v",
+          "type": "VARCHAR(8) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codcx",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "qtdimpres",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "comcli_v",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pednum",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "totnf_v",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "comven_v",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "nrrom_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdtpg_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "dtbairom",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vlpgcomc",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TrocReq",
+          "type": "VARCHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "motivocanc",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "usuent",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "descontocx",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "UsuAutDesc",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "GerAutDesc",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DescAutGer",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Conf_Sepa",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "dtefetiv",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codtab",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "newnrven",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "hostname",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ip",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "serieecf",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obsent",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "jaconf",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdobra",
+          "type": "VARCHAR(6) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empcli",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empnewven",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "emprom",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CQVen",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Margem",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "FreteTransp",
+          "type": "VARCHAR(3) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TipoTransporte",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "LocalEntregaTransp",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CodConsig",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "FreteConsig",
+          "type": "VARCHAR(3) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TipoTransporteConsig",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "LocalEntregaConsig",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "descicms_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "descpis_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "desccofins_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "descipi_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pdescicms_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pdescpis_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pdesccofins_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pdescipi_v",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "horaven_v",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "(CONVERT([char](10),getdate(),(8)))",
+          "autoincrement": false
+        },
+        {
+          "name": "LR",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "zona",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "STProd",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('S')",
+          "autoincrement": false
+        },
+        {
+          "name": "expsn",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "RetSN",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DataRet",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NrvenExt",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "nrreceita",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vlr_entrada",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "venRota_v",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NomeIdCx",
+          "type": "VARCHAR(40) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "EmpVenExt",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdcliext",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "IndicPor",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DataCanc",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vlr_Acresc",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "AvalAtd",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PedAutSN",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PedOrgTr",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obslongped",
+          "type": "VARCHAR COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "UserRest",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "AutoCodExt",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "IDSession",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TpEntVen",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "enviado",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLRPGDINH",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLRTROCO",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NRCOMAN",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CPFNFC",
+          "type": "VARCHAR(18) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CODCOMAN",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "isdeleted",
+          "type": "BIT",
+          "nullable": false,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "createdat",
+          "type": "DATETIME2",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "updatedat",
+          "type": "DATETIME2",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "ID_CLIENTE",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ID_EMPRESA",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ID_FPGTO",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ID_TPGTO",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ID_VENDEDOR",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ID_USUARIO",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        }
+      ],
+      "primary_key": {
+        "constrained_columns": [
+          "autocod_V"
+        ],
+        "name": "PK_t_vendas_final",
+        "dialect_options": {
+          "mssql_clustered": 1
+        }
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [
+        {
+          "name": "idx_emisven",
+          "unique": false,
+          "column_names": [
+            "emisven_v"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        },
+        {
+          "name": "idxcdcli",
+          "unique": false,
+          "column_names": [
+            "cdcli_v",
+            "empcli"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        },
+        {
+          "name": "idxemisven",
+          "unique": false,
+          "column_names": [
+            "emisven_v"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        }
+      ],
+      "check_constraints": []
+    },
+    "t_itsven": {
+      "columns": [
+        {
+          "name": "registro",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": true
+        },
+        {
+          "name": "empven",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "nrven_iv",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdemp_iv",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cditem_iv",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "deitem_iv",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "unditem_iv",
+          "type": "VARCHAR(5) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "marca_iv",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "locEst_iv",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "embitem_iv",
+          "type": "DECIMAL(24, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdgru_iv",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "comgru_iv",
+          "type": "DECIMAL(24, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "precmin_iv",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "precven_iv",
+          "type": "DECIMAL(18, 6)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "precpra_iv",
+          "type": "DECIMAL(18, 6)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "qtdeSol_iv",
+          "type": "DECIMAL(18, 6)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "QtdeAte_iv",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "QtdeEnt_iv",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "perdes_iv",
+          "type": "DECIMAL(18, 10)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "codcst_iv",
+          "type": "VARCHAR(5) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "emisven_iv",
+          "type": "DATETIME",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Status_iv",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdven_iv",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pesobr_iv",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Pendente",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "entimed_sn",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "entregar",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('N')",
+          "autoincrement": false
+        },
+        {
+          "name": "entregue",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "conferente",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obs",
+          "type": "VARCHAR(200) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "nftransf",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "coferente",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "compra_iv",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "custo_iv",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empitem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "precopig",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "qtdepend",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "precopromo",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "descicms_iv",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "descpis_iv",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "desccofins_iv",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "descipi_iv",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CustOp",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TribFed",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PisCofins",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "icms",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "LR",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obs2",
+          "type": "VARCHAR(200) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NumSerie",
+          "type": "VARCHAR(100) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "custo_l",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "IcmsNtf",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CredIcms",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "MP",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('N')",
+          "autoincrement": false
+        },
+        {
+          "name": "TemForm",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('N')",
+          "autoincrement": false
+        },
+        {
+          "name": "FinProd",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('N')",
+          "autoincrement": false
+        },
+        {
+          "name": "expsn",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ItemTransf",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "lispres",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "emplis",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "nrlista",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "emplista",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "st",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('S')",
+          "autoincrement": false
+        },
+        {
+          "name": "comissao",
+          "type": "DECIMAL(20, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TPCom",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vm",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ServicoSN_iv",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NrVenExtIv",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "userRestIv",
+          "type": "VARCHAR(15) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "RegistroExt",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "picms_iv",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "rest_icms_iv",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "autocod_v",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PerCrdIcms",
+          "type": "DECIMAL(38, 21)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PercPISCOF",
+          "type": "DECIMAL(38, 10)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PercCOper",
+          "type": "DECIMAL(38, 10)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PercTribFed",
+          "type": "DECIMAL(38, 10)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PercIcms",
+          "type": "DECIMAL(38, 10)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PercCusto",
+          "type": "DECIMAL(38, 6)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vDesc_iv",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "isdeleted",
+          "type": "BIT",
+          "nullable": false,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "createdat",
+          "type": "DATETIME2",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        },
+        {
+          "name": "updatedat",
+          "type": "DATETIME2",
+          "nullable": true,
+          "default": "(getdate())",
+          "autoincrement": false
+        }
+      ],
+      "primary_key": {
+        "constrained_columns": [
+          "registro"
+        ],
+        "name": "PK_t_itsven_final",
+        "dialect_options": {
+          "mssql_clustered": 1
+        }
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [
+        {
+          "name": "idx_cditem",
+          "unique": false,
+          "column_names": [
+            "cditem_iv",
+            "empitem"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        },
+        {
+          "name": "idx_nrven",
+          "unique": false,
+          "column_names": [
+            "nrven_iv",
+            "empven"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        }
+      ],
+      "check_constraints": []
+    },
+    "t_pdc": {
+      "columns": [
+        {
+          "name": "NrReq",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": true
+        },
+        {
+          "name": "cdemp",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empent",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empfat",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obscmp",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "dtReq",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CodTrs",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CodFor",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "StaReq",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DtSta",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "UsuSta",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "tpfre",
+          "type": "VARCHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": "('F')",
+          "autoincrement": false
+        },
+        {
+          "name": "vlFre",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vlAva",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": "((0))",
+          "autoincrement": false
+        },
+        {
+          "name": "totpro",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vlDesc",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "totnf",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "fPgto",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "prvFat",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CFOP",
+          "type": "VARCHAR(5) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vlIcms",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vlIPI",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "prvEnt",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Dtche",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "nrNFC",
+          "type": "VARCHAR(12) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "suframa",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "icmsvenda",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "piscofins",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "impRenda",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pesobr",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "contSocial",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "confre",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obs2",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obs3",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "substrib",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "despesas",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "icmsNtf",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "credicms",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "credfre",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "custoop",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "AdicDesc",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Percfrete",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TribFed",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "impNFE",
+          "type": "VARCHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TotalProSub",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "despesas2",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "serie",
+          "type": "VARCHAR(5) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "modelo",
+          "type": "VARCHAR(2) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "baseCalc",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "BCOutras",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Aliq",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pedcmp",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "jaform",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empfor",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "idnfe",
+          "type": "VARCHAR(50) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "emprec",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TransfSN",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ModCte",
+          "type": "VARCHAR(2) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "SerCte",
+          "type": "VARCHAR(3) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "SubSerCte",
+          "type": "VARCHAR(3) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DtEmiCte",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "IDCTe",
+          "type": "VARCHAR(50) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "EmpTrs",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CFOPTrs",
+          "type": "VARCHAR(4) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_ABAT_NT",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DescPisCof",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "MatUsoCons",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "natOp",
+          "type": "VARCHAR(30) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "tpNF",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "idDest",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "tpImp",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "tpEmis",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cDV",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "finNFe",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "indFinal",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "indPres",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "xJust",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vBC",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vICMS",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vICMSDeson",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vFCP",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vBCST",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vST",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vFCPST",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vFCPSTRet",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vProd",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vFrete",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vSeg",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vDesc",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vII",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vIPI",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vIPIDevol",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vPIS",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vCOFINS",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vOutro",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vNF",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "modFrete",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CRT",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLTotConFre",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CMunOrigConFre",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CMunDestConFre",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DTChegConFre",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CredIcmsConFre",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "COD_SIT",
+          "type": "CHAR(2) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_DOC",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_MERC",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_BC_ICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_ICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_BC_ICMS_ST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_ICMS_ST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_IPI",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_PIS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_COFINS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_PIS_ST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_COFINS_ST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "COMP",
+          "type": "VARCHAR(7) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NUMNF",
+          "type": "VARCHAR(12) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DTEMI",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DTENT",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLCONT",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "BCALC",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "OUTRAS",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ISENTAS",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLNOTIFICACAOST",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ESTFOR",
+          "type": "VARCHAR(2) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CGCFOR",
+          "type": "VARCHAR(18) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "IEFOR",
+          "type": "VARCHAR(18) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "OBS",
+          "type": "VARCHAR(40) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ESP",
+          "type": "VARCHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "STATUS",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLSEGURO",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLFRETE",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CODERRO",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "HOSTNAME",
+          "type": "VARCHAR(30) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VlrNtf",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        }
+      ],
+      "primary_key": {
+        "constrained_columns": [
+          "NrReq"
+        ],
+        "name": "PK_t_pdc_final",
+        "dialect_options": {
+          "mssql_clustered": 1
+        }
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [
+        {
+          "name": "idx_cdfor",
+          "unique": false,
+          "column_names": [
+            "CodFor",
+            "empfor"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        },
+        {
+          "name": "idx_dtche",
+          "unique": false,
+          "column_names": [
+            "Dtche"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        }
+      ],
+      "check_constraints": []
+    },
+    "t_itpdc": {
+      "columns": [
+        {
+          "name": "Registro",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": true
+        },
+        {
+          "name": "Nrreq",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdemp",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cditem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "QtSol",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "valcmp",
+          "type": "DECIMAL(18, 10)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "valant",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cditemnf",
+          "type": "VARCHAR(20) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "margem",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "custo",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "venda",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "icms",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ipi",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ipi_m",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DataEnt",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "desc_pisconf",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "perc_ST",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "aliqnf",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "QtAte",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "baseit",
+          "type": "DECIMAL(18, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "oldcod",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Oldvalcmp",
+          "type": "DECIMAL(9, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Oldcusto",
+          "type": "DECIMAL(9, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Oldmargem",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "IcmsNtf",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Vlrfrete",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VlrNtf",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VlrSufr",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VlrSubst",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VlrCstOper",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TribFed",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VlrIcmVnd",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CredIcms",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CredFrete",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "percfrete",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DescCom",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "percSufr",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codibge",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "oldvenda",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empitem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "emprec",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_ABAT_Icms",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_ABAT_PiSCof",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_ABAT_IT",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ALIQ_ICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_OPR",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_BC_ICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_ICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_BC_ICMS_ST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_ICMS_ST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_RED_BC",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VL_IPI",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "COD_OBS",
+          "type": "VARCHAR(6) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pICMSST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pRedBC",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "BCICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "BCICMSST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VFRETE",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLCONT",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ALIQUOTA",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "VLICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PERDESC",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CFOP",
+          "type": "VARCHAR(4) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "HOSTNAME",
+          "type": "VARCHAR(30) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CSTCMP",
+          "type": "VARCHAR(3) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "orig",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "CST",
+          "type": "CHAR(2) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "modBC",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vICMS",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vDesc",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pDesc",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vProd",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vOutro",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vICMSDeson",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vBC",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "pMVAST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vBCST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "vICMSST",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "ITBARCODE",
+          "type": "VARCHAR(18) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "UNDCMP",
+          "type": "VARCHAR(3) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "QTDCMP",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "FATCONV",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "DEITEMCMP",
+          "type": "VARCHAR(250) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "PRECORIG",
+          "type": "DECIMAL(18, 4)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        }
+      ],
+      "primary_key": {
+        "constrained_columns": [
+          "Registro"
+        ],
+        "name": "PK_t_itpdc_final",
+        "dialect_options": {
+          "mssql_clustered": 1
+        }
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [
+        {
+          "name": "idx_nrreq",
+          "unique": false,
+          "column_names": [
+            "Nrreq",
+            "emprec"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        },
+        {
+          "name": "IX_t_itpdc",
+          "unique": false,
+          "column_names": [
+            "cditem",
+            "empitem"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        }
+      ],
+      "check_constraints": []
+    },
+    "t_transf": {
+      "columns": [
+        {
+          "name": "codtransf",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": true
+        },
+        {
+          "name": "cdempsaida",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdempentrada",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "datahoratransf",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "datahorarec",
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "statustransf",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "observacao",
+          "type": "VARCHAR(100) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codusu_transf",
+          "type": "CHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "codusu_rec",
+          "type": "CHAR(10) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdemp",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "TransfSN",
+          "type": "CHAR(1) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Motorista",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "host",
+          "type": "VARCHAR(60) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        }
+      ],
+      "primary_key": {
+        "constrained_columns": [
+          "codtransf"
+        ],
+        "name": "PK_t_transf_final",
+        "dialect_options": {
+          "mssql_clustered": 1
+        }
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [],
+      "check_constraints": []
+    },
+    "t_ittransf": {
+      "columns": [
+        {
+          "name": "cditemtransf",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": true
+        },
+        {
+          "name": "cdtransf",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cditem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "qtditem",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "empitem",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "cdemp",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "obsit",
+          "type": "VARCHAR(255) COLLATE \"Latin1_General_CI_AS\"",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "Custo",
+          "type": "DECIMAL(9, 2)",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "NrReq",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "EmpReq",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        },
+        {
+          "name": "AutoCodReq",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "autoincrement": false
+        }
+      ],
+      "primary_key": {
+        "constrained_columns": [
+          "cditemtransf"
+        ],
+        "name": "PK_t_ittransf_final",
+        "dialect_options": {
+          "mssql_clustered": 1
+        }
+      },
+      "foreign_keys": [],
+      "unique_constraints": [],
+      "indexes": [
+        {
+          "name": "idx_cdtranf",
+          "unique": false,
+          "column_names": [
+            "cdtransf",
+            "cdemp"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        },
+        {
+          "name": "idxcditem",
+          "unique": false,
+          "column_names": [
+            "cditem",
+            "empitem"
+          ],
+          "include_columns": [],
+          "dialect_options": {
+            "mssql_clustered": false,
+            "mssql_include": []
+          }
+        }
+      ],
+      "check_constraints": []
+    }
+  }
+}
