@@ -3,12 +3,24 @@ from datetime import datetime
 import pandas as pd
 from sqlalchemy import text
 
-from src.database import engine_atual, engine_base
+from src.database import get_engine
 from src.transform import extrair_movimentacoes_novas
 from src.utils import atualizar_saldos_finais, recriar_indices
 
 
-def preparar_t_movest_destino():
+def solicitar_nomes_bancos():
+    banco_base = input("Informe o nome do banco base (origem): ").strip()
+    banco_atual = input("Informe o nome do banco atual (destino): ").strip()
+
+    if not banco_base:
+        raise ValueError("O nome do banco base nao pode ficar vazio.")
+    if not banco_atual:
+        raise ValueError("O nome do banco atual nao pode ficar vazio.")
+
+    return banco_base, banco_atual
+
+
+def preparar_t_movest_destino(engine_base, engine_atual):
     tabela_inventario = None
 
     with engine_atual.begin() as conn:
@@ -33,7 +45,7 @@ def preparar_t_movest_destino():
         return tabela_inventario
 
 
-def obter_data_corte_base():
+def obter_data_corte_base(engine_base):
     with engine_base.connect() as conn:
         data_corte = conn.execute(text("SELECT MAX(DataLan) FROM T_MOVEST")).scalar()
     return data_corte or datetime(1900, 1, 1)
@@ -166,8 +178,12 @@ def calcular_delta(qtde, st):
 
 
 def main():
+    banco_base, banco_atual = solicitar_nomes_bancos()
+    engine_base = get_engine(banco_base)
+    engine_atual = get_engine(banco_atual)
+
     print("1) Preparando T_MOVEST no Bancoatual...")
-    tabela_inventario = preparar_t_movest_destino()
+    tabela_inventario = preparar_t_movest_destino(engine_base, engine_atual)
     if tabela_inventario:
         print(f"T_MOVEST existente renomeada para {tabela_inventario}.")
         print("Nova T_MOVEST criada a partir do Bancobase.")
@@ -175,7 +191,7 @@ def main():
         print("T_MOVEST nao existia. Nova T_MOVEST criada a partir do Bancobase.")
 
     print("2) Lendo data inicial no Bancobase.T_MOVEST...")
-    data_corte = obter_data_corte_base()
+    data_corte = obter_data_corte_base(engine_base)
     print(f"Data de corte: {data_corte}")
 
     print("3) Carregando saldos iniciais do Bancobase.t_saldoit...")

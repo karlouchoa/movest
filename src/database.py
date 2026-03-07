@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, event
 
+
 def get_engine(db_name):
     conn_str = (
         f"mssql+pyodbc://localhost/{db_name}?"
@@ -13,6 +14,3 @@ def get_engine(db_name):
         if executemany:
             cursor.fast_executemany = True
     return engine
-
-engine_base = get_engine("Bancobase")
-engine_atual = get_engine("Bancoatual")

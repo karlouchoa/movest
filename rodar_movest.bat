@@ -23,25 +23,19 @@ if not exist "venv\Scripts\python.exe" (
 )
 
 echo [3/4] Instalando dependencias...
-"venv\Scripts\python.exe" -m pip install --disable-pip-version-check --quiet pandas sqlalchemy pyodbc
+if exist "requirements.txt" (
+  "venv\Scripts\python.exe" -m pip install --disable-pip-version-check --quiet -r requirements.txt
+) else (
+  "venv\Scripts\python.exe" -m pip install --disable-pip-version-check --quiet -r requiriments.txt
+)
 if errorlevel 1 (
   echo Falha ao instalar dependencias.
   pause
   exit /b 1
 )
 
-echo [4/4] Executando aplicacao...
-set LOG_FILE=execucao_movest.log
-"venv\Scripts\python.exe" main.py >> "%LOG_FILE%" 2>&1
-set EXIT_CODE=%ERRORLEVEL%
-
-if %EXIT_CODE% neq 0 (
-  echo Execucao finalizada com erro. Veja o log: %LOG_FILE%
-  pause
-  exit /b %EXIT_CODE%
-)
-
-echo Execucao finalizada com sucesso.
-echo Log salvo em: %LOG_FILE%
+echo [4/4] Dependencias instaladas com sucesso.
+echo Ambiente pronto para executar a aplicacao com:
+echo venv\Scripts\python.exe main.py
 pause
 exit /b 0
