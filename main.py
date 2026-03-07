@@ -72,7 +72,7 @@ def preparar_colunas_para_insert(df_novos, colunas_destino):
         if "clifor" not in df_novos.columns:
             df_novos["clifor"] = 1
         else:
-            df_novos["clifor"] = df_novos["clifor"].fillna(1)
+            df_novos.loc[df_novos["clifor"].isna(), "clifor"] = 1
 
     if "datadoc" in colunas_destino and "datadoc" not in df_novos.columns:
         df_novos["datadoc"] = df_novos["data"]
@@ -93,19 +93,23 @@ def preparar_colunas_para_insert(df_novos, colunas_destino):
         if "empfor" not in df_novos.columns:
             df_novos["empfor"] = 1
         else:
-            df_novos["empfor"] = df_novos["empfor"].fillna(1)
+            df_novos.loc[df_novos["empfor"].isna(), "empfor"] = 1
 
     if "empven" in colunas_destino:
         if "empven" not in df_novos.columns:
             df_novos["empven"] = df_novos["cdemp"]
         else:
-            df_novos["empven"] = df_novos["empven"].fillna(df_novos["cdemp"])
+            df_novos.loc[df_novos["empven"].isna(), "empven"] = df_novos.loc[
+                df_novos["empven"].isna(), "cdemp"
+            ]
 
     if "obsit" in colunas_destino:
         if "obsit" not in df_novos.columns:
             df_novos["obsit"] = df_novos["obs"]
         else:
-            df_novos["obsit"] = df_novos["obsit"].fillna(df_novos["obs"])
+            df_novos.loc[df_novos["obsit"].isna(), "obsit"] = df_novos.loc[
+                df_novos["obsit"].isna(), "obs"
+            ]
 
     if "Preco" in colunas_destino and "Preco" not in df_novos.columns:
         df_novos["Preco"] = 0
@@ -120,7 +124,7 @@ def preparar_colunas_para_insert(df_novos, colunas_destino):
         if "isdeleted" not in df_novos.columns:
             df_novos["isdeleted"] = 0
         else:
-            df_novos["isdeleted"] = df_novos["isdeleted"].fillna(0)
+            df_novos.loc[df_novos["isdeleted"].isna(), "isdeleted"] = 0
 
     agora = datetime.now()
     if "createdat" in colunas_destino and "createdat" not in df_novos.columns:

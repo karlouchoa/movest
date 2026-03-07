@@ -263,6 +263,10 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     df_i = pd.read_sql(q_inv, engine, params=params)
     df_a = pd.read_sql(q_avulsas, engine, params=params)
 
-    unificado = pd.concat([df_v, df_p, df_t, df_i, df_a], ignore_index=True)
+    dataframes = [df for df in (df_v, df_p, df_t, df_i, df_a) if not df.empty]
+    if not dataframes:
+        return pd.DataFrame(columns=COLUNAS_UNIFICADAS)
+
+    unificado = pd.concat(dataframes, ignore_index=True)
     unificado = unificado.loc[:, ~unificado.columns.duplicated()].copy()
     return unificado[COLUNAS_UNIFICADAS]
