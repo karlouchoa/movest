@@ -34,8 +34,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [4/4] Dependencias instaladas com sucesso.
-echo Ambiente pronto para executar a aplicacao com:
-echo venv\Scripts\python.exe main.py
+echo [4/4] Executando aplicacao...
+"venv\Scripts\python.exe" main.py
+if errorlevel 1 (
+  echo A aplicacao foi encerrada com erro.
+  pause
+  exit /b 1
+)
+
+echo Aplicacao finalizada.
 pause
 exit /b 0

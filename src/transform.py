@@ -48,26 +48,38 @@ def _colunas_tabela(engine, tabela):
     return {c["name"].lower() for c in inspector.get_columns(tabela, schema="dbo")}
 
 
-def _expressao_data_inventario(colunas):
+def _coluna_tabela(coluna, alias=None):
+    if not alias:
+        return coluna
+    return f"{alias}.{coluna}"
+
+
+def _expressao_data_inventario(colunas, alias=None):
     if "datalan" in colunas:
-        return "DataLan"
+        return _coluna_tabela("DataLan", alias)
     if "data" in colunas:
-        return "[data]"
+        return _coluna_tabela("[data]", alias)
     raise RuntimeError("Tabela de inventario nao possui coluna de data valida.")
 
 
-def _expressao_ip_inventario(colunas):
+def _expressao_ip_inventario(colunas, alias=None):
     if "ip" in colunas:
-        return "CAST(ip AS VARCHAR(50))"
+        return f"CAST({_coluna_tabela('ip', alias)} AS VARCHAR(50))"
     return "CAST(NULL AS VARCHAR(50))"
 
 
-def _expressao_seqit_inventario(colunas):
+def _expressao_seqit_inventario(colunas, alias=None):
     if "seqit" in colunas:
-        return "SEQIT"
+        return _coluna_tabela("SEQIT", alias)
     if "registro" in colunas:
-        return "Registro"
+        return _coluna_tabela("Registro", alias)
     return "NULL"
+
+
+def _expressao_ordem_inventario(colunas, alias=None):
+    if "nrlan" in colunas:
+        return f"CAST({_coluna_tabela('nrlan', alias)} AS BIGINT)"
+    return f"CAST({_coluna_tabela('numdoc', alias)} AS BIGINT)"
 
 
 def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
@@ -175,6 +187,11 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     data_expr_inv = _expressao_data_inventario(colunas_inv)
     ip_expr_inv = _expressao_ip_inventario(colunas_inv)
     seqit_expr_inv = _expressao_seqit_inventario(colunas_inv)
+    ordem_expr_inv = _expressao_ordem_inventario(colunas_inv)
+    data_expr_inv_m = _expressao_data_inventario(colunas_inv, alias="m")
+    ip_expr_inv_m = _expressao_ip_inventario(colunas_inv, alias="m")
+    seqit_expr_inv_m = _expressao_seqit_inventario(colunas_inv, alias="m")
+    ordem_expr_inv_m = _expressao_ordem_inventario(colunas_inv, alias="m")
 
     q_inv = text(
         f"""
@@ -184,9 +201,46 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
            obs, CAST(obs AS VARCHAR(255)) as obsit, codusu,
            {ip_expr_inv} as ip, cdemp as empven,
            {seqit_expr_inv} as SEQIT,
-           CAST(numdoc AS BIGINT) as _ordem
-    FROM {tabela_inv}
+           {ordem_expr_inv} as _ordem
+    FROM dbo.{tabela_inv}
     WHERE especie = 'I' AND {data_expr_inv} >= :data_corte AND {data_expr_inv} <= GETDATE()
+    """
+    )
+
+    q_avulsas = text(
+        f"""
+    SELECT m.numdoc, {data_expr_inv_m} as data, {data_expr_inv_m} as datadoc,
+           m.cdemp, m.cditem, m.qtde, m.especie, m.st,
+           1 as clifor, 1 as empfor, 1 as empitem,
+           m.obs, CAST(m.obs AS VARCHAR(255)) as obsit, m.codusu,
+           {ip_expr_inv_m} as ip, m.cdemp as empven,
+           {seqit_expr_inv_m} as SEQIT,
+           {ordem_expr_inv_m} as _ordem
+    FROM dbo.{tabela_inv} m
+    WHERE {data_expr_inv_m} >= :data_corte
+      AND {data_expr_inv_m} <= GETDATE()
+      AND (
+          (m.st = 'S' AND m.especie IN ('C', 'O', 'A'))
+          OR (
+              m.st = 'E'
+              AND m.especie = 'C'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM T_PDC p
+                  WHERE p.nrNFC = m.numdoc
+              )
+          )
+          OR (
+              m.st = 'E'
+              AND m.especie = 'T'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM T_TRANSF t
+                  WHERE t.codtransf = m.numdoc
+              )
+          )
+          OR (m.st = 'E' AND m.especie = 'O')
+      )
     """
     )
 
@@ -195,7 +249,8 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     df_p = pd.read_sql(q_pdc, engine, params=params)
     df_t = pd.read_sql(q_transf, engine, params=params)
     df_i = pd.read_sql(q_inv, engine, params=params)
+    df_a = pd.read_sql(q_avulsas, engine, params=params)
 
-    unificado = pd.concat([df_v, df_p, df_t, df_i], ignore_index=True)
+    unificado = pd.concat([df_v, df_p, df_t, df_i, df_a], ignore_index=True)
     unificado = unificado.loc[:, ~unificado.columns.duplicated()].copy()
     return unificado[COLUNAS_UNIFICADAS]
