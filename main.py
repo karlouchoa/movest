@@ -13,13 +13,20 @@ def solicitar_parametros_conexao():
     servidor = input("Informe o servidor/instancia SQL [localhost]: ").strip() or "localhost"
     banco_base = input("Informe o nome do banco base (origem): ").strip()
     banco_atual = input("Informe o nome do banco atual (destino): ").strip()
+    codigo_item_raw = input("Informe o codigo do item [todos]: ").strip()
 
     if not banco_base:
         raise ValueError("O nome do banco base nao pode ficar vazio.")
     if not banco_atual:
         raise ValueError("O nome do banco atual nao pode ficar vazio.")
 
-    return servidor, banco_base, banco_atual
+    codigo_item = None
+    if codigo_item_raw:
+        if not codigo_item_raw.isdigit() or int(codigo_item_raw) <= 0:
+            raise ValueError("O codigo do item deve ser um numero inteiro maior que zero.")
+        codigo_item = int(codigo_item_raw)
+
+    return servidor, banco_base, banco_atual, codigo_item
 
 
 def validar_conexao(engine, nome_banco, papel, servidor):
@@ -33,7 +40,7 @@ def validar_conexao(engine, nome_banco, papel, servidor):
         ) from exc
 
 
-def preparar_t_movest_destino(engine_base, engine_atual):
+def preparar_t_movest_destino(engine_base, engine_atual, codigo_item=None):
     tabela_inventario = None
 
     with engine_atual.begin() as conn:
@@ -47,6 +54,13 @@ def preparar_t_movest_destino(engine_base, engine_atual):
                 """
             )
         ).scalar()
+
+        if codigo_item is not None:
+            if not existe:
+                raise RuntimeError(
+                    "Para processar um item especifico, a dbo.T_MOVEST precisa existir no banco atual."
+                )
+            return "T_MOVEST"
 
         if existe:
             sufixo = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -65,6 +79,31 @@ def obter_data_corte_base(engine_base):
             text("SELECT MAX(DataLan) FROM T_MOVEST WHERE DataLan <= GETDATE()")
         ).scalar()
     return (data_corte or datetime(1900, 1, 1)), data_maxima
+
+
+def excluir_movest_por_item(conn, codigo_item, data_corte):
+    coluna_data = "DataLan"
+    possui_datalan = conn.execute(
+        text("SELECT COL_LENGTH('dbo.T_MOVEST', 'DataLan')")
+    ).scalar()
+    if not possui_datalan:
+        possui_data = conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'data')")).scalar()
+        if possui_data:
+            coluna_data = "[data]"
+        else:
+            raise RuntimeError("A dbo.T_MOVEST nao possui coluna de data valida para exclusao.")
+
+    resultado = conn.execute(
+        text(
+            f"""
+            DELETE FROM dbo.T_MOVEST
+            WHERE cditem = :codigo_item
+              AND {coluna_data} >= :data_corte
+            """
+        ),
+        {"codigo_item": codigo_item, "data_corte": data_corte},
+    )
+    return int(resultado.rowcount or 0)
 
 
 def preparar_colunas_para_insert(df_novos, colunas_destino):
@@ -198,21 +237,13 @@ def calcular_delta(qtde, st):
 
 
 def main():
-    servidor, banco_base, banco_atual = solicitar_parametros_conexao()
+    servidor, banco_base, banco_atual, codigo_item = solicitar_parametros_conexao()
     engine_base = get_engine(servidor, banco_base)
     engine_atual = get_engine(servidor, banco_atual)
     validar_conexao(engine_base, banco_base, "base", servidor)
     validar_conexao(engine_atual, banco_atual, "atual", servidor)
 
-    print("1) Preparando T_MOVEST no Bancoatual...")
-    tabela_inventario = preparar_t_movest_destino(engine_base, engine_atual)
-    if tabela_inventario:
-        print(f"T_MOVEST existente renomeada para {tabela_inventario}.")
-        print("Nova T_MOVEST criada a partir do Bancobase.")
-    else:
-        print("T_MOVEST nao existia. Nova T_MOVEST criada a partir do Bancobase.")
-
-    print("2) Lendo data inicial no Bancobase.T_MOVEST...")
+    print("1) Lendo data inicial no Bancobase.T_MOVEST...")
     data_corte, data_maxima_base = obter_data_corte_base(engine_base)
     if data_maxima_base and data_maxima_base > datetime.now():
         print(
@@ -221,8 +252,28 @@ def main():
         )
     print(f"Data de corte: {data_corte}")
 
+    print("2) Preparando T_MOVEST no Bancoatual...")
+    tabela_inventario = preparar_t_movest_destino(engine_base, engine_atual, codigo_item=codigo_item)
+    if codigo_item is not None:
+        print("Processamento por item: a T_MOVEST atual sera mantida e usada como origem de leitura.")
+    elif tabela_inventario:
+        print(f"T_MOVEST existente renomeada para {tabela_inventario}.")
+        print("Nova T_MOVEST criada a partir do Bancobase.")
+    else:
+        print("T_MOVEST nao existia. Nova T_MOVEST criada a partir do Bancobase.")
+
+    if codigo_item:
+        print(f"Filtro de processamento: apenas item {codigo_item}.")
+    else:
+        print("Filtro de processamento: todos os itens.")
+
     print("3) Carregando saldos iniciais do Bancobase.t_saldoit...")
-    df_s_init = pd.read_sql("SELECT cditem, cdemp, saldo FROM t_saldoit", engine_base)
+    q_saldoit = "SELECT cditem, cdemp, saldo FROM t_saldoit"
+    params_saldoit = None
+    if codigo_item:
+        q_saldoit += " WHERE cditem = :codigo_item"
+        params_saldoit = {"codigo_item": codigo_item}
+    df_s_init = pd.read_sql(text(q_saldoit), engine_base, params=params_saldoit)
     dict_geral = df_s_init.groupby("cditem")["saldo"].sum().to_dict()
     dict_emp = df_s_init.set_index(["cditem", "cdemp"])["saldo"].to_dict()
 
@@ -231,26 +282,23 @@ def main():
         engine_atual,
         data_corte,
         tabela_inventario=tabela_inventario,
+        codigo_item=codigo_item,
     )
-    if df_novos.empty:
-        print("Nenhuma movimentacao encontrada para inserir.")
-        print("7) Gerando script de indices, constraints, PK e FK para execucao manual...")
-        caminho_script = replicar_estrutura_t_movest(engine_atual, tabela_inventario)
-        print(f"Script SQL gerado em: {caminho_script}")
-        print("Concluido com sucesso.")
-        return
 
     colunas_ordenacao = ["data"]
     if "_ordem" in df_novos.columns:
         colunas_ordenacao.append("_ordem")
     colunas_ordenacao.append("numdoc")
+    if "SEQIT" in df_novos.columns:
+        df_novos["_seqit_sort"] = pd.to_numeric(df_novos["SEQIT"], errors="coerce").fillna(0)
+        colunas_ordenacao.append("_seqit_sort")
     df_novos = df_novos.sort_values(by=colunas_ordenacao).reset_index(drop=True)
     print(f"Registros encontrados: {len(df_novos)}")
 
     print("5) Calculando saldoant e SldAntEmp...")
     saldo_ant_geral = []
     saldo_ant_emp = []
-    saldos_finais_item_emp = {}
+    saldos_finais_item_emp = dict(dict_emp) if codigo_item is not None else {}
 
     for _, row in df_novos.iterrows():
         cditem, cdemp = row["cditem"], row["cdemp"]
@@ -271,25 +319,39 @@ def main():
 
     print("6) Gravando em T_MOVEST e atualizando t_saldoit...")
     with engine_atual.begin() as conn:
+        if codigo_item is not None:
+            qtd_excluida = excluir_movest_por_item(conn, codigo_item, data_corte)
+            print(f"   Excluindo registros existentes do item {codigo_item} em T_MOVEST desde {data_corte}...")
+            print(f"   Registros excluidos: {qtd_excluida}")
+
         res_cols = conn.execute(text("SELECT TOP 0 * FROM T_MOVEST"))
         colunas_destino = list(res_cols.keys())
 
-        print("   Preparando colunas para insercao...")
-        df_novos = preparar_colunas_para_insert(df_novos, colunas_destino)
-        df_novos = preencher_nrlan(df_novos, conn, colunas_destino)
-        df_para_gravar = df_novos[[c for c in df_novos.columns if c in colunas_destino]].copy()
-        df_para_gravar = normalizar_tipos_para_insert(df_para_gravar, conn)
-        print(f"   Inserindo {len(df_para_gravar)} registros em T_MOVEST...")
-        df_para_gravar.to_sql("T_MOVEST", conn, if_exists="append", index=False, chunksize=1000)
-        print("   Insercao em T_MOVEST concluida.")
+        if not df_novos.empty:
+            print("   Preparando colunas para insercao...")
+            df_novos = preparar_colunas_para_insert(df_novos, colunas_destino)
+            df_novos = preencher_nrlan(df_novos, conn, colunas_destino)
+            df_para_gravar = df_novos[[c for c in df_novos.columns if c in colunas_destino]].copy()
+            df_para_gravar = normalizar_tipos_para_insert(df_para_gravar, conn)
+            print(f"   Inserindo {len(df_para_gravar)} registros em T_MOVEST...")
+            df_para_gravar.to_sql("T_MOVEST", conn, if_exists="append", index=False, chunksize=1000)
+            print("   Insercao em T_MOVEST concluida.")
+        else:
+            print("   Nenhuma movimentacao encontrada para reinserir.")
 
-        print(f"   Atualizando {len(saldos_finais_item_emp)} saldos em t_saldoit...")
-        atualizar_saldos_finais(conn, saldos_finais_item_emp)
-        print("   Atualizacao de t_saldoit concluida.")
+        if saldos_finais_item_emp:
+            print(f"   Atualizando {len(saldos_finais_item_emp)} saldos em t_saldoit...")
+            atualizar_saldos_finais(conn, saldos_finais_item_emp)
+            print("   Atualizacao de t_saldoit concluida.")
+        else:
+            print("   Nenhum saldo de t_saldoit precisou ser atualizado.")
 
-    print("7) Gerando script de indices, constraints, PK e FK para execucao manual...")
-    caminho_script = replicar_estrutura_t_movest(engine_atual, tabela_inventario)
-    print(f"Script SQL gerado em: {caminho_script}")
+    if codigo_item is None:
+        print("7) Recriando indices, constraints, PK, FK e triggers na nova T_MOVEST...")
+        caminho_script = replicar_estrutura_t_movest(engine_atual, tabela_inventario)
+        print(f"Script SQL salvo em: {caminho_script}")
+    else:
+        print("7) Processamento por item concluido sem recriacao de objetos da tabela.")
 
     print("Concluido com sucesso.")
 

@@ -76,6 +76,10 @@ def _expressao_seqit_inventario(colunas, alias=None):
     return "NULL"
 
 
+def _expressao_seqit_tabela(engine, tabela, alias=None):
+    return _expressao_seqit_inventario(_colunas_tabela(engine, tabela), alias)
+
+
 def _expressao_ordem_inventario(colunas, alias=None):
     if "nrlan" in colunas:
         return f"CAST({_coluna_tabela('nrlan', alias)} AS BIGINT)"
@@ -93,9 +97,24 @@ def _expressao_numdoc_numerico(alias):
     )
 
 
-def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
+def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codigo_item=None):
+    filtro_item_vendas = ""
+    filtro_item_pdc = ""
+    filtro_item_transf = ""
+    filtro_item_inv = ""
+    params = {"data_corte": data_corte}
+
+    if codigo_item is not None:
+        filtro_item_vendas = "\n      AND iv.cditem_iv = :codigo_item"
+        filtro_item_pdc = "\n      AND it.cditem = :codigo_item"
+        filtro_item_transf = "\n      AND it.cditem = :codigo_item"
+        filtro_item_inv = "\n      AND cditem = :codigo_item"
+        params["codigo_item"] = codigo_item
+
+    seqit_expr_movest_m = _expressao_seqit_tabela(engine, "T_MOVEST", alias="m")
+
     q_vendas = text(
-        """
+        f"""
     SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc,
            iv.cdemp_iv as cdemp, iv.cditem_iv as cditem, iv.qtdeSol_iv as qtde,
            CASE WHEN v.TrocReq = 'S' THEN 'T' ELSE 'V' END as especie,
@@ -112,6 +131,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     FROM T_ITSVEN iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
+    {filtro_item_vendas}
 
     UNION ALL
 
@@ -126,6 +146,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     FROM T_ITSVEN iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
+      {filtro_item_vendas}
       AND v.status_v = 'C'
       AND ISNULL(v.TrocReq, 'N') <> 'S'
       AND NOT EXISTS (
@@ -134,12 +155,15 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
           WHERE m.numdoc = v.nrven_v
             AND m.st = 'S'
             AND m.especie = 'V'
+            AND m.cdemp = iv.cdemp_iv
+            AND m.cditem = iv.cditem_iv
+            AND ISNULL(TRY_CAST({seqit_expr_movest_m} AS BIGINT), 0) = ISNULL(TRY_CAST(iv.registro AS BIGINT), 0)
       )
     """
     )
 
     q_pdc = text(
-        """
+        f"""
     SELECT p.nrNFC as numdoc, p.DtSta as data, p.DtSta as datadoc,
            p.empent as cdemp, it.cditem as cditem, it.QtSol as qtde,
            CASE WHEN p.StaReq = 'E' THEN 'C' ELSE 'D' END as especie,
@@ -152,11 +176,12 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     FROM T_ITPDC it
     JOIN T_PDC p ON it.Nrreq = p.NrReq
     WHERE p.DtSta >= :data_corte AND p.StaReq IN ('E', 'A')
+      {filtro_item_pdc}
     """
     )
 
     q_transf = text(
-        """
+        f"""
     SELECT t.codtransf as numdoc, COALESCE(t.datahorarec, t.datahoratransf) as data,
            COALESCE(t.datahorarec, t.datahoratransf) as datadoc,
            t.cdempsaida as cdemp, it.cditem as cditem, it.qtditem as qtde,
@@ -169,6 +194,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     FROM T_ITTRANSF it
     JOIN T_TRANSF t ON it.cdtransf = t.codtransf
     WHERE COALESCE(t.datahorarec, t.datahoratransf) >= :data_corte AND t.statustransf = 'E'
+      {filtro_item_transf}
 
     UNION ALL
 
@@ -184,6 +210,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     FROM T_ITTRANSF it
     JOIN T_TRANSF t ON it.cdtransf = t.codtransf
     WHERE COALESCE(t.datahorarec, t.datahoratransf) >= :data_corte AND t.statustransf = 'E'
+      {filtro_item_transf}
     """
     )
 
@@ -216,6 +243,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
            {ordem_expr_inv} as _ordem
     FROM dbo.{tabela_inv}
     WHERE especie = 'I' AND {data_expr_inv} >= :data_corte AND {data_expr_inv} <= GETDATE()
+      {filtro_item_inv}
     """
     )
 
@@ -231,6 +259,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     FROM dbo.{tabela_inv} m
     WHERE {data_expr_inv_m} >= :data_corte
       AND {data_expr_inv_m} <= GETDATE()
+      {"AND m.cditem = :codigo_item" if codigo_item is not None else ""}
       AND (
           (m.st = 'S' AND m.especie IN ('C', 'O', 'A'))
           OR (
@@ -256,7 +285,6 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None):
     """
     )
 
-    params = {"data_corte": data_corte}
     df_v = pd.read_sql(q_vendas, engine, params=params)
     df_p = pd.read_sql(q_pdc, engine, params=params)
     df_t = pd.read_sql(q_transf, engine, params=params)
