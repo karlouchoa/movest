@@ -13,14 +13,6 @@ def _table_name(name):
     return f"dbo.{_q(name)}"
 
 
-def _replace_trigger_target(definition, origem, destino):
-    origem_bracket = f"ON [dbo].[{origem}]"
-    destino_bracket = f"ON [dbo].[{destino}]"
-    origem_plain = f"ON dbo.{origem}"
-    destino_plain = f"ON dbo.{destino}"
-    return definition.replace(origem_bracket, destino_bracket).replace(origem_plain, destino_plain)
-
-
 def _classificar_tipo_indice(type_desc):
     valor = (type_desc or "").upper().strip()
     if valor == "CLUSTERED":
@@ -44,7 +36,7 @@ def _tem_indice_clusterizado(conn, tabela):
     return bool(row)
 
 
-def _salvar_scripts_replicacao(tabela_origem, tabela_destino, drop_scripts, create_scripts):
+def _salvar_scripts_replicacao(tabela_origem, tabela_destino, create_scripts):
     pasta_saida = Path("scripts_gerados")
     pasta_saida.mkdir(parents=True, exist_ok=True)
 
@@ -55,20 +47,15 @@ def _salvar_scripts_replicacao(tabela_origem, tabela_destino, drop_scripts, crea
         f"-- Origem: dbo.{tabela_origem}",
         f"-- Destino: dbo.{tabela_destino}",
         f"-- Gerado em: {datetime.now().isoformat()}",
+        "-- Execucao manual: rode este script apos a carga da nova T_MOVEST.",
         "",
-        "-- DROP NA TABELA RENOMEADA",
+        "-- CREATE DE INDICES, CONSTRAINTS, PK E FK NA NOVA T_MOVEST",
         "GO",
     ]
 
-    for script in drop_scripts:
-        secoes.append(script.strip())
-        secoes.append("GO")
-
-    secoes.append("")
-    secoes.append("-- CREATE NA NOVA T_MOVEST")
-    secoes.append("GO")
-
     for script in create_scripts:
+        if not script.strip():
+            continue
         secoes.append(script.strip())
         secoes.append("GO")
 
@@ -76,50 +63,38 @@ def _salvar_scripts_replicacao(tabela_origem, tabela_destino, drop_scripts, crea
     return caminho_saida
 
 
-def recriar_indices(engine):
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                """
-                IF EXISTS (
-                    SELECT 1
-                    FROM sys.indexes
-                    WHERE object_id = OBJECT_ID('dbo.T_MOVEST')
-                      AND name = 'IX_T_MOVEST_Data'
-                )
-                DROP INDEX IX_T_MOVEST_Data ON dbo.T_MOVEST
-                """
-            )
-        )
-        conn.execute(
-            text(
-                """
-                IF EXISTS (
-                    SELECT 1
-                    FROM sys.indexes
-                    WHERE object_id = OBJECT_ID('dbo.T_MOVEST')
-                      AND name = 'IX_T_MOVEST_ItemEmp'
-                )
-                DROP INDEX IX_T_MOVEST_ItemEmp ON dbo.T_MOVEST
-                """
-            )
-        )
-        conn.execute(
-            text(
-                """
-                CREATE NONCLUSTERED INDEX IX_T_MOVEST_Data
-                ON dbo.T_MOVEST (DataLan, nrlan)
-                """
-            )
-        )
-        conn.execute(
-            text(
-                """
-                CREATE NONCLUSTERED INDEX IX_T_MOVEST_ItemEmp
-                ON dbo.T_MOVEST (cditem, cdemp)
-                """
-            )
-        )
+def _salvar_scripts_indices_padrao(tabela_destino, create_scripts):
+    pasta_saida = Path("scripts_gerados")
+    pasta_saida.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    caminho_saida = pasta_saida / f"recriar_indices_{tabela_destino}_{timestamp}.sql"
+
+    secoes = [
+        f"-- Destino: dbo.{tabela_destino}",
+        f"-- Gerado em: {datetime.now().isoformat()}",
+        "-- Execucao manual: rode este script apos a carga da nova T_MOVEST.",
+        "",
+        "-- CREATE DE INDICES PADRAO NA NOVA T_MOVEST",
+        "GO",
+    ]
+
+    for script in create_scripts:
+        if not script.strip():
+            continue
+        secoes.append(script.strip())
+        secoes.append("GO")
+
+    caminho_saida.write_text("\n".join(secoes) + "\n", encoding="utf-8")
+    return caminho_saida
+
+
+def recriar_indices(tabela_destino="T_MOVEST"):
+    create_scripts = [
+        f"CREATE NONCLUSTERED INDEX IX_T_MOVEST_Data ON {_table_name(tabela_destino)} (DataLan, nrlan)",
+        f"CREATE NONCLUSTERED INDEX IX_T_MOVEST_ItemEmp ON {_table_name(tabela_destino)} (cditem, cdemp)",
+    ]
+    return _salvar_scripts_indices_padrao(tabela_destino, create_scripts)
 
 
 def atualizar_saldos_finais(conn, saldos_finais_item_emp, chunk_size=1000):
@@ -138,12 +113,12 @@ def atualizar_saldos_finais(conn, saldos_finais_item_emp, chunk_size=1000):
 
 def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"):
     if not tabela_origem:
-        recriar_indices(engine)
-        return
+        caminho_scripts = recriar_indices(tabela_destino)
+        return caminho_scripts
 
     origem_full = f"dbo.{tabela_origem}"
 
-    with engine.begin() as conn:
+    with engine.connect() as conn:
         destino_tem_clustered = _tem_indice_clusterizado(conn, tabela_destino)
 
         default_rows = conn.execute(
@@ -261,17 +236,6 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             {"table_name": origem_full},
         ).fetchall()
 
-        trigger_rows = conn.execute(
-            text(
-                """
-                SELECT tr.name, OBJECT_DEFINITION(tr.object_id) AS definition
-                FROM sys.triggers tr
-                WHERE tr.parent_id = OBJECT_ID(:table_name)
-                """
-            ),
-            {"table_name": origem_full},
-        ).fetchall()
-
         key_map = defaultdict(list)
         key_meta = {}
         for row in key_rows:
@@ -306,13 +270,7 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 order = " DESC" if data["is_descending_key"] else " ASC"
                 index_map[data["name"]]["keys"].append(f"{_q(data['column_name'])}{order}")
 
-        drop_scripts = []
         create_scripts = []
-
-        for row in trigger_rows:
-            data = row._mapping
-            drop_scripts.append(f"DROP TRIGGER {_table_name(data['name'])}")
-            create_scripts.append(_replace_trigger_target(data["definition"], tabela_origem, tabela_destino))
 
         for name, pairs in fk_map.items():
             delete_action, update_action, ref_schema, ref_table = fk_meta[name]
@@ -321,7 +279,6 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             delete_sql = "" if delete_action == "NO_ACTION" else f" ON DELETE {delete_action.replace('_', ' ')}"
             update_sql = "" if update_action == "NO_ACTION" else f" ON UPDATE {update_action.replace('_', ' ')}"
 
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
             create_scripts.append(
                 "ALTER TABLE "
                 f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} FOREIGN KEY ({parent_cols}) "
@@ -337,7 +294,6 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             elif clustered == "CLUSTERED":
                 destino_tem_clustered = True
 
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
             create_scripts.append(
                 "ALTER TABLE "
                 f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} {constraint_type} {clustered} "
@@ -346,7 +302,6 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
 
         for row in check_rows:
             data = row._mapping
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(data['name'])}")
             create_scripts.append(
                 "ALTER TABLE "
                 f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(data['name'])} CHECK {data['definition']}"
@@ -354,7 +309,6 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
 
         for row in default_rows:
             data = row._mapping
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(data['name'])}")
             create_scripts.append(
                 "ALTER TABLE "
                 f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(data['name'])} "
@@ -372,7 +326,6 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             include_sql = f" INCLUDE ({', '.join(item['includes'])})" if item["includes"] else ""
             filter_sql = f" WHERE {filter_definition}" if filter_definition else ""
 
-            drop_scripts.append(f"DROP INDEX {_q(name)} ON {_table_name(tabela_origem)}")
             create_scripts.append(
                 f"CREATE {unique_sql}{index_type} INDEX {_q(name)} "
                 f"ON {_table_name(tabela_destino)} ({', '.join(item['keys'])}){include_sql}{filter_sql}"
@@ -381,13 +334,6 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
         caminho_scripts = _salvar_scripts_replicacao(
             tabela_origem,
             tabela_destino,
-            drop_scripts,
             create_scripts,
         )
-        print(f"Scripts salvos em: {caminho_scripts}")
-
-        for script in drop_scripts:
-            conn.execute(text(script))
-
-        for script in create_scripts:
-            conn.execute(text(script))
+        return caminho_scripts

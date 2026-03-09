@@ -234,6 +234,10 @@ def main():
     )
     if df_novos.empty:
         print("Nenhuma movimentacao encontrada para inserir.")
+        print("7) Gerando script de indices, constraints, PK e FK para execucao manual...")
+        caminho_script = replicar_estrutura_t_movest(engine_atual, tabela_inventario)
+        print(f"Script SQL gerado em: {caminho_script}")
+        print("Concluido com sucesso.")
         return
 
     colunas_ordenacao = ["data"]
@@ -283,8 +287,9 @@ def main():
         atualizar_saldos_finais(conn, saldos_finais_item_emp)
         print("   Atualizacao de t_saldoit concluida.")
 
-    print("7) Replicando indices, constraints, chaves e triggers para a nova T_MOVEST...")
-    replicar_estrutura_t_movest(engine_atual, tabela_inventario)
+    print("7) Gerando script de indices, constraints, PK e FK para execucao manual...")
+    caminho_script = replicar_estrutura_t_movest(engine_atual, tabela_inventario)
+    print(f"Script SQL gerado em: {caminho_script}")
 
     print("Concluido com sucesso.")
 
