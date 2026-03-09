@@ -1,1 +1,4 @@
 # Arquivo para ignorar o venv e logs no Git
+venv/
+__pycache__/
+*.py[cod]
