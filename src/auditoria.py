@@ -60,7 +60,7 @@ def _carregar_movest(engine, data_corte, codigo_item=None):
             {expr_seqit} AS seqit_sort,
             {expr_ordem} AS ordem_sort
         FROM dbo.T_MOVEST
-        WHERE {coluna_data} >= :data_corte
+        WHERE {coluna_data} > :data_corte
     """
 
     params = {"data_corte": data_corte}
