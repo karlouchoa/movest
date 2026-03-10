@@ -122,10 +122,16 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
                     ISNULL(iv.empitem, 1),
                     ISNULL(iv.qtdeSol_iv, 0),
                     ISNULL(iv.deitem_iv, ''),
-                    ISNULL(iv.st, ''),
-                    ISNULL(iv.precven_iv, 0),
-                    ISNULL(iv.precpra_iv, 0)
-                ORDER BY iv.registro
+                    ISNULL(iv.st, '')
+                ORDER BY
+                    CASE
+                        WHEN ISNULL(iv.precpra_iv, 0) * ISNULL(iv.qtdeSol_iv, 0) > 0 THEN 0
+                        WHEN ISNULL(iv.precven_iv, 0) * ISNULL(iv.qtdeSol_iv, 0) > 0 THEN 1
+                        ELSE 2
+                    END,
+                    ISNULL(iv.precpra_iv, 0) DESC,
+                    ISNULL(iv.precven_iv, 0) DESC,
+                    iv.registro
             ) AS dup_rn
         FROM T_ITSVEN iv
     )
