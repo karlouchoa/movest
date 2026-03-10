@@ -74,11 +74,22 @@ def preparar_t_movest_destino(engine_base, engine_atual, codigo_item=None):
 
 def obter_data_corte_base(engine_base):
     with engine_base.connect() as conn:
-        data_maxima = conn.execute(text("SELECT MAX(DataLan) FROM T_MOVEST")).scalar()
-        data_corte = conn.execute(
-            text("SELECT MAX(DataLan) FROM T_MOVEST WHERE DataLan <= GETDATE()")
+        if conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'datadoc')")).scalar():
+            coluna_data_base = "datadoc"
+        elif conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'DataLan')")).scalar():
+            coluna_data_base = "DataLan"
+        elif conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'data')")).scalar():
+            coluna_data_base = "[data]"
+        else:
+            raise RuntimeError("A dbo.T_MOVEST nao possui DATADOC, DataLan ou data para definir a data base.")
+
+        data_maxima_original = conn.execute(
+            text(f"SELECT MAX({coluna_data_base}) FROM T_MOVEST")
         ).scalar()
-    return (data_corte or datetime(1900, 1, 1)), data_maxima
+        data_maxima_valida = conn.execute(
+            text(f"SELECT MAX({coluna_data_base}) FROM T_MOVEST WHERE {coluna_data_base} <= GETDATE()")
+        ).scalar()
+    return (data_maxima_valida or datetime(1900, 1, 1)), data_maxima_original, coluna_data_base
 
 
 def excluir_movest_por_item(conn, codigo_item, data_corte):
@@ -251,12 +262,14 @@ def main():
     validar_conexao(engine_atual, banco_atual, "atual", servidor)
 
     print("1) Lendo data inicial no Bancobase.T_MOVEST...")
-    data_corte, data_maxima_base = obter_data_corte_base(engine_base)
+    data_corte, data_maxima_base, coluna_data_base = obter_data_corte_base(engine_base)
     if data_maxima_base and data_maxima_base > datetime.now():
         print(
-            f"Data maxima futura detectada na T_MOVEST base ({data_maxima_base}). "
-            f"Usando maior DataLan valida ate hoje: {data_corte}"
+            f"Data maxima futura detectada em T_MOVEST.{coluna_data_base} ({data_maxima_base}). "
+            f"Usando a maior data valida ate hoje: {data_corte}"
         )
+    else:
+        print(f"Data maxima em T_MOVEST.{coluna_data_base}: {data_maxima_base}")
     print(f"Data de corte: {data_corte}")
 
     print("2) Preparando T_MOVEST no Bancoatual...")

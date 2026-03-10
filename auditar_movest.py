@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from main import obter_data_corte_base, solicitar_parametros_conexao, validar_conexao
 from src.auditoria import auditar_movest, salvar_relatorio_auditoria
 from src.database import get_engine
@@ -21,9 +23,14 @@ def main():
     validar_conexao(engine_base, banco_base, "base", servidor)
     validar_conexao(engine_atual, banco_atual, "atual", servidor)
 
-    data_corte, data_maxima_base = obter_data_corte_base(engine_base)
-    if data_maxima_base:
-        print(f"Data maxima da T_MOVEST base: {data_maxima_base}")
+    data_corte, data_maxima_base, coluna_data_base = obter_data_corte_base(engine_base)
+    if data_maxima_base and data_maxima_base > datetime.now():
+        print(
+            f"Data maxima futura detectada em T_MOVEST.{coluna_data_base} ({data_maxima_base}). "
+            f"Usando a maior data valida ate hoje: {data_corte}"
+        )
+    elif data_maxima_base:
+        print(f"Data maxima em T_MOVEST.{coluna_data_base}: {data_maxima_base}")
     print(f"Data de corte usada na auditoria: {data_corte}")
 
     if codigo_item is not None:
