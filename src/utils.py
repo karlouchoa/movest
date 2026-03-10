@@ -56,6 +56,10 @@ def _salvar_scripts_replicacao(tabela_origem, tabela_destino, drop_scripts, crea
         f"-- Destino: dbo.{tabela_destino}",
         f"-- Gerado em: {datetime.now().isoformat()}",
         "-- Execucao manual: rode este script apos a carga da nova T_MOVEST.",
+        "-- Em caso de falha, a transacao deve ser revertida automaticamente.",
+        "SET XACT_ABORT ON;",
+        "GO",
+        "BEGIN TRANSACTION;",
         "",
         "-- DROP DE OBJETOS NA TABELA RENOMEADA",
         "GO",
@@ -80,6 +84,13 @@ def _salvar_scripts_replicacao(tabela_origem, tabela_destino, drop_scripts, crea
             continue
         secoes.append(script.strip())
         secoes.append("GO")
+
+    secoes.extend(
+        [
+            "COMMIT TRANSACTION;",
+            "GO",
+        ]
+    )
 
     caminho_saida.write_text("\n".join(secoes) + "\n", encoding="utf-8")
     return caminho_saida
@@ -344,12 +355,14 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
 
     origem_full = f"dbo.{tabela_origem}"
 
-    with engine.begin() as conn:
-        destino_tem_clustered = _tem_indice_clusterizado(conn, tabela_destino)
-        colunas_destino = _colunas_tabela(conn, tabela_destino)
-        metadados_colunas_origem = _metadados_colunas_tabela(conn, tabela_origem)
+    with engine.connect() as conn:
+        transacao = conn.begin()
+        try:
+            destino_tem_clustered = _tem_indice_clusterizado(conn, tabela_destino)
+            colunas_destino = _colunas_tabela(conn, tabela_destino)
+            metadados_colunas_origem = _metadados_colunas_tabela(conn, tabela_origem)
 
-        default_rows = conn.execute(
+            default_rows = conn.execute(
             text(
                 """
                 SELECT dc.name, c.name AS column_name, dc.definition
@@ -361,9 +374,9 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 """
             ),
             {"table_name": origem_full},
-        ).fetchall()
+            ).fetchall()
 
-        check_rows = conn.execute(
+            check_rows = conn.execute(
             text(
                 """
                 SELECT
@@ -381,9 +394,9 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 """
             ),
             {"table_name": origem_full},
-        ).fetchall()
+            ).fetchall()
 
-        key_rows = conn.execute(
+            key_rows = conn.execute(
             text(
                 """
                 SELECT
@@ -408,9 +421,9 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 """
             ),
             {"table_name": origem_full},
-        ).fetchall()
+            ).fetchall()
 
-        fk_rows = conn.execute(
+            fk_rows = conn.execute(
             text(
                 """
                 SELECT
@@ -440,9 +453,9 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 """
             ),
             {"table_name": origem_full},
-        ).fetchall()
+            ).fetchall()
 
-        index_rows = conn.execute(
+            index_rows = conn.execute(
             text(
                 """
                 SELECT
@@ -471,9 +484,9 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 """
             ),
             {"table_name": origem_full},
-        ).fetchall()
+            ).fetchall()
 
-        trigger_rows = conn.execute(
+            trigger_rows = conn.execute(
             text(
                 """
                 SELECT tr.name, OBJECT_DEFINITION(tr.object_id) AS definition
@@ -482,187 +495,194 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 """
             ),
             {"table_name": origem_full},
-        ).fetchall()
+            ).fetchall()
 
-        key_map = defaultdict(lambda: {"defs": [], "column_names": set()})
-        key_meta = {}
-        for row in key_rows:
-            data = row._mapping
-            key_meta[data["name"]] = (data["type_desc"], data["index_type_desc"])
-            order = " DESC" if data["is_descending_key"] else " ASC"
-            key_map[data["name"]]["defs"].append(f"{_q(data['column_name'])}{order}")
-            key_map[data["name"]]["column_names"].add(data["column_name"])
-
-        fk_map = defaultdict(list)
-        fk_meta = {}
-        for row in fk_rows:
-            data = row._mapping
-            fk_meta[data["name"]] = (
-                data["delete_referential_action_desc"],
-                data["update_referential_action_desc"],
-                data["ref_schema_name"],
-                data["ref_table_name"],
-            )
-            fk_map[data["name"]].append((data["parent_column_name"], data["ref_column_name"]))
-
-        check_map = defaultdict(lambda: {"definition": None, "column_names": set()})
-        for row in check_rows:
-            data = row._mapping
-            check_map[data["name"]]["definition"] = data["definition"]
-            if data["column_name"]:
-                check_map[data["name"]]["column_names"].add(data["column_name"])
-
-        index_map = defaultdict(lambda: {"keys": [], "includes": [], "meta": None, "column_names": set()})
-        for row in index_rows:
-            data = row._mapping
-            index_map[data["name"]]["meta"] = (
-                data["type_desc"],
-                data["is_unique"],
-                data["filter_definition"],
-            )
-            index_map[data["name"]]["column_names"].add(data["column_name"])
-            if data["is_included_column"]:
-                index_map[data["name"]]["includes"].append(_q(data["column_name"]))
-            else:
+            key_map = defaultdict(lambda: {"defs": [], "column_names": set()})
+            key_meta = {}
+            for row in key_rows:
+                data = row._mapping
+                key_meta[data["name"]] = (data["type_desc"], data["index_type_desc"])
                 order = " DESC" if data["is_descending_key"] else " ASC"
-                index_map[data["name"]]["keys"].append(f"{_q(data['column_name'])}{order}")
+                key_map[data["name"]]["defs"].append(f"{_q(data['column_name'])}{order}")
+                key_map[data["name"]]["column_names"].add(data["column_name"])
 
-        drop_scripts = []
-        create_scripts = []
-        default_constraints_inline = set()
-
-        colunas_importantes = set()
-        for item in key_map.values():
-            colunas_importantes.update(item["column_names"])
-        for item in check_map.values():
-            colunas_importantes.update(item["column_names"])
-        for row in default_rows:
-            colunas_importantes.add(row._mapping["column_name"])
-        for item in index_map.values():
-            colunas_importantes.update(item["column_names"])
-        for pairs in fk_map.values():
-            colunas_importantes.update(parent for parent, _ in pairs)
-
-        colunas_faltantes = [col for col in sorted(colunas_importantes) if col not in colunas_destino]
-        for nome_coluna in colunas_faltantes:
-            meta = metadados_colunas_origem.get(nome_coluna)
-            if not meta:
-                continue
-            meta = dict(meta)
-
-            default_nome = meta.get("default_name")
-            default_def = meta.get("default_definition")
-            if not meta["is_nullable"] and not default_def and not meta["is_identity"] and not meta["is_computed"]:
-                default_def = _default_fallback_coluna(meta)
-                if default_def:
-                    default_nome = f"DF_{tabela_destino}_{nome_coluna}_AUTO"
-                else:
-                    meta["is_nullable"] = True
-
-            create_scripts.append(
-                _montar_sql_add_coluna(
-                    meta,
-                    tabela_destino,
-                    nome_constraint_default=default_nome if default_def else None,
-                    default_definition=default_def,
+            fk_map = defaultdict(list)
+            fk_meta = {}
+            for row in fk_rows:
+                data = row._mapping
+                fk_meta[data["name"]] = (
+                    data["delete_referential_action_desc"],
+                    data["update_referential_action_desc"],
+                    data["ref_schema_name"],
+                    data["ref_table_name"],
                 )
+                fk_map[data["name"]].append((data["parent_column_name"], data["ref_column_name"]))
+
+            check_map = defaultdict(lambda: {"definition": None, "column_names": set()})
+            for row in check_rows:
+                data = row._mapping
+                check_map[data["name"]]["definition"] = data["definition"]
+                if data["column_name"]:
+                    check_map[data["name"]]["column_names"].add(data["column_name"])
+
+            index_map = defaultdict(lambda: {"keys": [], "includes": [], "meta": None, "column_names": set()})
+            for row in index_rows:
+                data = row._mapping
+                index_map[data["name"]]["meta"] = (
+                    data["type_desc"],
+                    data["is_unique"],
+                    data["filter_definition"],
+                )
+                index_map[data["name"]]["column_names"].add(data["column_name"])
+                if data["is_included_column"]:
+                    index_map[data["name"]]["includes"].append(_q(data["column_name"]))
+                else:
+                    order = " DESC" if data["is_descending_key"] else " ASC"
+                    index_map[data["name"]]["keys"].append(f"{_q(data['column_name'])}{order}")
+
+            drop_scripts = []
+            create_scripts = []
+            default_constraints_inline = set()
+
+            colunas_importantes = set()
+            for item in key_map.values():
+                colunas_importantes.update(item["column_names"])
+            for item in check_map.values():
+                colunas_importantes.update(item["column_names"])
+            for row in default_rows:
+                colunas_importantes.add(row._mapping["column_name"])
+            for item in index_map.values():
+                colunas_importantes.update(item["column_names"])
+            for pairs in fk_map.values():
+                colunas_importantes.update(parent for parent, _ in pairs)
+
+            colunas_faltantes = [col for col in sorted(colunas_importantes) if col not in colunas_destino]
+            for nome_coluna in colunas_faltantes:
+                meta = metadados_colunas_origem.get(nome_coluna)
+                if not meta:
+                    continue
+                meta = dict(meta)
+
+                default_nome = meta.get("default_name")
+                default_def = meta.get("default_definition")
+                if not meta["is_nullable"] and not default_def and not meta["is_identity"] and not meta["is_computed"]:
+                    default_def = _default_fallback_coluna(meta)
+                    if default_def:
+                        default_nome = f"DF_{tabela_destino}_{nome_coluna}_AUTO"
+                    else:
+                        meta["is_nullable"] = True
+
+                create_scripts.append(
+                    _montar_sql_add_coluna(
+                        meta,
+                        tabela_destino,
+                        nome_constraint_default=default_nome if default_def else None,
+                        default_definition=default_def,
+                    )
+                )
+                colunas_destino.add(nome_coluna)
+                if meta.get("default_name") and default_nome == meta.get("default_name") and default_def:
+                    default_constraints_inline.add(meta["default_name"])
+
+            for name, item in key_map.items():
+                if not item["column_names"].issubset(colunas_destino):
+                    continue
+                key_type, index_type = key_meta[name]
+                constraint_type = "PRIMARY KEY" if key_type == "PK_CONSTRAINT" else "UNIQUE"
+                clustered = _classificar_tipo_indice(index_type)
+                if clustered == "CLUSTERED" and destino_tem_clustered:
+                    clustered = "NONCLUSTERED"
+                elif clustered == "CLUSTERED":
+                    destino_tem_clustered = True
+
+                drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
+                create_scripts.append(
+                    "ALTER TABLE "
+                    f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} {constraint_type} {clustered} "
+                    f"({', '.join(item['defs'])})"
+                )
+
+            for name, item in check_map.items():
+                if item["column_names"] and not item["column_names"].issubset(colunas_destino):
+                    continue
+                drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
+                create_scripts.append(
+                    "ALTER TABLE "
+                    f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} CHECK {item['definition']}"
+                )
+
+            for row in default_rows:
+                data = row._mapping
+                drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(data['name'])}")
+                if data["name"] in default_constraints_inline:
+                    continue
+                if data["column_name"] not in colunas_destino:
+                    continue
+                create_scripts.append(
+                    "ALTER TABLE "
+                    f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(data['name'])} "
+                    f"DEFAULT {data['definition']} FOR {_q(data['column_name'])}"
+                )
+
+            for name, item in index_map.items():
+                if not item["column_names"].issubset(colunas_destino):
+                    continue
+                type_desc, is_unique, filter_definition = item["meta"]
+                unique_sql = "UNIQUE " if is_unique else ""
+                index_type = _classificar_tipo_indice(type_desc)
+                if index_type == "CLUSTERED" and destino_tem_clustered:
+                    index_type = "NONCLUSTERED"
+                elif index_type == "CLUSTERED":
+                    destino_tem_clustered = True
+                include_sql = f" INCLUDE ({', '.join(item['includes'])})" if item["includes"] else ""
+                filter_sql = f" WHERE {filter_definition}" if filter_definition else ""
+
+                drop_scripts.append(f"DROP INDEX {_q(name)} ON {_table_name(tabela_origem)}")
+                create_scripts.append(
+                    f"CREATE {unique_sql}{index_type} INDEX {_q(name)} "
+                    f"ON {_table_name(tabela_destino)} ({', '.join(item['keys'])}){include_sql}{filter_sql}"
+                )
+
+            for name, pairs in fk_map.items():
+                colunas_fk = {parent for parent, _ in pairs}
+                if not colunas_fk.issubset(colunas_destino):
+                    continue
+                delete_action, update_action, ref_schema, ref_table = fk_meta[name]
+                parent_cols = ", ".join(_q(parent) for parent, _ in pairs)
+                ref_cols = ", ".join(_q(ref) for _, ref in pairs)
+                delete_sql = "" if delete_action == "NO_ACTION" else f" ON DELETE {delete_action.replace('_', ' ')}"
+                update_sql = "" if update_action == "NO_ACTION" else f" ON UPDATE {update_action.replace('_', ' ')}"
+
+                drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
+                create_scripts.append(
+                    "ALTER TABLE "
+                    f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} FOREIGN KEY ({parent_cols}) "
+                    f"REFERENCES {_q(ref_schema)}.{_q(ref_table)} ({ref_cols}){delete_sql}{update_sql}"
+                )
+
+            for row in trigger_rows:
+                data = row._mapping
+                drop_scripts.append(f"DROP TRIGGER {_table_name(data['name'])}")
+                create_scripts.append(_replace_trigger_target(data["definition"], tabela_origem, tabela_destino))
+
+            caminho_scripts = _salvar_scripts_replicacao(
+                tabela_origem,
+                tabela_destino,
+                drop_scripts,
+                create_scripts,
             )
-            colunas_destino.add(nome_coluna)
-            if meta.get("default_name") and default_nome == meta.get("default_name") and default_def:
-                default_constraints_inline.add(meta["default_name"])
 
-        for name, item in key_map.items():
-            if not item["column_names"].issubset(colunas_destino):
-                continue
-            key_type, index_type = key_meta[name]
-            constraint_type = "PRIMARY KEY" if key_type == "PK_CONSTRAINT" else "UNIQUE"
-            clustered = _classificar_tipo_indice(index_type)
-            if clustered == "CLUSTERED" and destino_tem_clustered:
-                clustered = "NONCLUSTERED"
-            elif clustered == "CLUSTERED":
-                destino_tem_clustered = True
+            for script in drop_scripts:
+                conn.execute(text(script))
 
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
-            create_scripts.append(
-                "ALTER TABLE "
-                f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} {constraint_type} {clustered} "
-                f"({', '.join(item['defs'])})"
-            )
+            for script in create_scripts:
+                conn.execute(text(script))
 
-        for name, item in check_map.items():
-            if item["column_names"] and not item["column_names"].issubset(colunas_destino):
-                continue
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
-            create_scripts.append(
-                "ALTER TABLE "
-                f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} CHECK {item['definition']}"
-            )
-
-        for row in default_rows:
-            data = row._mapping
-            if data["name"] in default_constraints_inline:
-                continue
-            if data["column_name"] not in colunas_destino:
-                continue
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(data['name'])}")
-            create_scripts.append(
-                "ALTER TABLE "
-                f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(data['name'])} "
-                f"DEFAULT {data['definition']} FOR {_q(data['column_name'])}"
-            )
-
-        for name, item in index_map.items():
-            if not item["column_names"].issubset(colunas_destino):
-                continue
-            type_desc, is_unique, filter_definition = item["meta"]
-            unique_sql = "UNIQUE " if is_unique else ""
-            index_type = _classificar_tipo_indice(type_desc)
-            if index_type == "CLUSTERED" and destino_tem_clustered:
-                index_type = "NONCLUSTERED"
-            elif index_type == "CLUSTERED":
-                destino_tem_clustered = True
-            include_sql = f" INCLUDE ({', '.join(item['includes'])})" if item["includes"] else ""
-            filter_sql = f" WHERE {filter_definition}" if filter_definition else ""
-
-            drop_scripts.append(f"DROP INDEX {_q(name)} ON {_table_name(tabela_origem)}")
-            create_scripts.append(
-                f"CREATE {unique_sql}{index_type} INDEX {_q(name)} "
-                f"ON {_table_name(tabela_destino)} ({', '.join(item['keys'])}){include_sql}{filter_sql}"
-            )
-
-        for name, pairs in fk_map.items():
-            colunas_fk = {parent for parent, _ in pairs}
-            if not colunas_fk.issubset(colunas_destino):
-                continue
-            delete_action, update_action, ref_schema, ref_table = fk_meta[name]
-            parent_cols = ", ".join(_q(parent) for parent, _ in pairs)
-            ref_cols = ", ".join(_q(ref) for _, ref in pairs)
-            delete_sql = "" if delete_action == "NO_ACTION" else f" ON DELETE {delete_action.replace('_', ' ')}"
-            update_sql = "" if update_action == "NO_ACTION" else f" ON UPDATE {update_action.replace('_', ' ')}"
-
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
-            create_scripts.append(
-                "ALTER TABLE "
-                f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} FOREIGN KEY ({parent_cols}) "
-                f"REFERENCES {_q(ref_schema)}.{_q(ref_table)} ({ref_cols}){delete_sql}{update_sql}"
-            )
-
-        for row in trigger_rows:
-            data = row._mapping
-            drop_scripts.append(f"DROP TRIGGER {_table_name(data['name'])}")
-            create_scripts.append(_replace_trigger_target(data["definition"], tabela_origem, tabela_destino))
-
-        caminho_scripts = _salvar_scripts_replicacao(
-            tabela_origem,
-            tabela_destino,
-            drop_scripts,
-            create_scripts,
-        )
-
-        for script in drop_scripts:
-            conn.execute(text(script))
-
-        for script in create_scripts:
-            conn.execute(text(script))
-
-        return caminho_scripts
+            transacao.commit()
+            return caminho_scripts
+        except Exception as exc:
+            transacao.rollback()
+            raise RuntimeError(
+                "Falha ao recriar indices, constraints, PK, FK ou triggers da nova T_MOVEST. "
+                "As remocoes realizadas na tabela renomeada foram revertidas por rollback."
+            ) from exc
