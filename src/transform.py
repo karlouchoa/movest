@@ -88,13 +88,7 @@ def _expressao_ordem_inventario(colunas, alias=None):
 
 def _expressao_numdoc_numerico(alias):
     numdoc_texto = f"LTRIM(RTRIM(CAST({_coluna_tabela('numdoc', alias)} AS VARCHAR(50))))"
-    return (
-        "CASE "
-        f"WHEN {numdoc_texto} <> '' "
-        f"AND PATINDEX('%[^0-9]%', {numdoc_texto}) = 0 "
-        f"THEN CAST({numdoc_texto} AS BIGINT) "
-        "ELSE NULL END"
-    )
+    return f"TRY_CAST(NULLIF({numdoc_texto}, '') AS BIGINT)"
 
 
 def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codigo_item=None):
@@ -268,7 +262,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
               AND NOT EXISTS (
                   SELECT 1
                   FROM T_PDC p
-                  WHERE p.nrNFC = {numdoc_numerico_inv_m}
+                  WHERE TRY_CAST(NULLIF(LTRIM(RTRIM(CAST(p.nrNFC AS VARCHAR(50)))), '') AS BIGINT) = {numdoc_numerico_inv_m}
               )
           )
           OR (
@@ -277,7 +271,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
               AND NOT EXISTS (
                   SELECT 1
                   FROM T_TRANSF t
-                  WHERE t.codtransf = {numdoc_numerico_inv_m}
+                  WHERE TRY_CAST(t.codtransf AS BIGINT) = {numdoc_numerico_inv_m}
               )
           )
           OR (m.st = 'E' AND m.especie = 'O')
