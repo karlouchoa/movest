@@ -82,6 +82,12 @@ def _expressao_seqit_tabela(engine, tabela, alias=None):
     return _expressao_seqit_inventario(_colunas_tabela(engine, tabela), alias)
 
 
+def _expressao_clifor_inventario(colunas, alias=None):
+    if "clifor" in colunas:
+        return f"ISNULL({_coluna_tabela('clifor', alias)}, 1)"
+    return "1"
+
+
 def _expressao_ordem_inventario(colunas, alias=None):
     if "nrlan" in colunas:
         return f"TRY_CAST({_coluna_tabela('nrlan', alias)} AS BIGINT)"
@@ -143,7 +149,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
                WHEN v.status_v = 'C' THEN 'E'
                ELSE iv.st
            END as st,
-           1 as clifor, 1 as empfor, ISNULL(iv.empitem, 1) as empitem,
+           ISNULL(v.cdcli_v, 1) as clifor, 1 as empfor, ISNULL(iv.empitem, 1) as empitem,
            v.obsven_v as obs, CAST(v.obsven_v AS VARCHAR(255)) as obsit, v.codusu_v as codusu,
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
            CAST(ISNULL(iv.precpra_iv, 0) AS DECIMAL(18, 4)) as Preco,
@@ -161,7 +167,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
     SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc,
            iv.cdemp_iv as cdemp, iv.cditem_iv as cditem, iv.qtdeSol_iv as qtde,
            'V' as especie, 'S' as st,
-           1 as clifor, 1 as empfor, ISNULL(iv.empitem, 1) as empitem,
+           ISNULL(v.cdcli_v, 1) as clifor, 1 as empfor, ISNULL(iv.empitem, 1) as empitem,
            v.obsven_v as obs, CAST(v.obsven_v AS VARCHAR(255)) as obsit, v.codusu_v as codusu,
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
            CAST(ISNULL(iv.precpra_iv, 0) AS DECIMAL(18, 4)) as Preco,
@@ -193,7 +199,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            p.empent as cdemp, it.cditem as cditem, it.QtSol as qtde,
            CASE WHEN p.StaReq = 'E' THEN 'C' ELSE 'D' END as especie,
            'E' as st,
-           1 as clifor, 1 as empfor, 1 as empitem,
+           ISNULL(p.CodFor, 1) as clifor, 1 as empfor, 1 as empitem,
            p.obscmp as obs, CAST(p.obscmp AS VARCHAR(255)) as obsit, p.UsuSta as codusu,
            CAST(p.HOSTNAME AS VARCHAR(50)) as ip, p.cdemp as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
@@ -260,6 +266,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
     data_expr_inv_m = _expressao_data_inventario(colunas_inv, alias="m")
     ip_expr_inv_m = _expressao_ip_inventario(colunas_inv, alias="m")
     seqit_expr_inv_m = _expressao_seqit_inventario(colunas_inv, alias="m")
+    clifor_expr_inv_m = _expressao_clifor_inventario(colunas_inv, alias="m")
     ordem_expr_inv_m = _expressao_ordem_inventario(colunas_inv, alias="m")
     numdoc_numerico_inv_m = _expressao_numdoc_numerico(alias="m")
 
@@ -284,7 +291,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
         f"""
     SELECT m.numdoc, {data_expr_inv_m} as data, {data_expr_inv_m} as datadoc,
            m.cdemp, m.cditem, m.qtde, m.especie, m.st,
-           1 as clifor, 1 as empfor, 1 as empitem,
+           {clifor_expr_inv_m} as clifor, 1 as empfor, 1 as empitem,
            m.obs, CAST(m.obs AS VARCHAR(255)) as obsit, m.codusu,
            {ip_expr_inv_m} as ip, m.cdemp as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,

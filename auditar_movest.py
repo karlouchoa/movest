@@ -3,8 +3,18 @@ from src.auditoria import auditar_movest, salvar_relatorio_auditoria
 from src.database import get_engine
 
 
+def solicitar_codigo_empresa():
+    codigo_empresa_raw = input("Informe o codigo da empresa [todas]: ").strip()
+    if not codigo_empresa_raw:
+        return None
+    if not codigo_empresa_raw.isdigit() or int(codigo_empresa_raw) <= 0:
+        raise ValueError("O codigo da empresa deve ser um numero inteiro maior que zero.")
+    return int(codigo_empresa_raw)
+
+
 def main():
     servidor, banco_base, banco_atual, codigo_item = solicitar_parametros_conexao()
+    codigo_empresa = solicitar_codigo_empresa()
     engine_base = get_engine(servidor, banco_base)
     engine_atual = get_engine(servidor, banco_atual)
 
@@ -20,6 +30,12 @@ def main():
         print(f"Auditoria filtrada para o item {codigo_item}.")
     else:
         print("Auditoria para todos os itens.")
+    if codigo_empresa is not None:
+        print(
+            f"Auditoria filtrada para a empresa {codigo_empresa}, usando o campo SldAntEmp."
+        )
+    else:
+        print("Auditoria sem filtro de empresa, usando o campo saldoant.")
 
     print("Lendo movimentacoes e saldos para auditoria...")
     df_discrepancias, resumo = auditar_movest(
@@ -27,11 +43,17 @@ def main():
         engine_atual,
         data_corte,
         codigo_item=codigo_item,
+        codigo_empresa=codigo_empresa,
     )
-    caminho_relatorio = salvar_relatorio_auditoria(df_discrepancias, codigo_item=codigo_item)
+    caminho_relatorio = salvar_relatorio_auditoria(
+        df_discrepancias,
+        codigo_item=codigo_item,
+        codigo_empresa=codigo_empresa,
+    )
 
     print(f"Movimentos auditados: {resumo['qtd_movimentos_auditados']}")
     print(f"Itens auditados: {resumo['qtd_itens_auditados']}")
+    print(f"Campo auditado: {resumo['campo_auditado']}")
     print(f"Discrepancias encontradas: {resumo['qtd_discrepancias']}")
     print(f"Relatorio salvo em: {caminho_relatorio}")
 

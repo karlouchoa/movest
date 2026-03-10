@@ -32,16 +32,22 @@ def _resolver_expr_ordem(colunas):
     return "TRY_CAST(numdoc AS BIGINT)"
 
 
-def _carregar_saldoit(engine, codigo_item=None):
+def _carregar_saldoit(engine, codigo_item=None, codigo_empresa=None):
     sql = "SELECT cditem, cdemp, saldo FROM dbo.t_saldoit"
-    params = None
+    filtros = []
+    params = {}
     if codigo_item is not None:
-        sql += " WHERE cditem = :codigo_item"
-        params = {"codigo_item": codigo_item}
+        filtros.append("cditem = :codigo_item")
+        params["codigo_item"] = codigo_item
+    if codigo_empresa is not None:
+        filtros.append("cdemp = :codigo_empresa")
+        params["codigo_empresa"] = codigo_empresa
+    if filtros:
+        sql += " WHERE " + " AND ".join(filtros)
     return pd.read_sql(text(sql), engine, params=params)
 
 
-def _carregar_movest(engine, data_corte, codigo_item=None):
+def _carregar_movest(engine, data_corte, codigo_item=None, codigo_empresa=None):
     colunas = _colunas_tabela(engine, "T_MOVEST")
     coluna_data = _resolver_coluna_data(colunas)
     expr_seqit = _resolver_expr_seqit(colunas)
@@ -67,6 +73,9 @@ def _carregar_movest(engine, data_corte, codigo_item=None):
     if codigo_item is not None:
         sql += " AND cditem = :codigo_item"
         params["codigo_item"] = codigo_item
+    if codigo_empresa is not None:
+        sql += " AND cdemp = :codigo_empresa"
+        params["codigo_empresa"] = codigo_empresa
 
     df = pd.read_sql(text(sql), engine, params=params)
     if df.empty:
@@ -111,10 +120,17 @@ def _add_discrepancia(discrepancias, tipo, cditem, esperado, encontrado, **extra
     )
 
 
-def auditar_movest(engine_base, engine_atual, data_corte, codigo_item=None):
-    df_saldo_base = _carregar_saldoit(engine_base, codigo_item=codigo_item)
-    df_saldo_atual = _carregar_saldoit(engine_atual, codigo_item=codigo_item)
-    df_mov = _carregar_movest(engine_atual, data_corte, codigo_item=codigo_item)
+def auditar_movest(engine_base, engine_atual, data_corte, codigo_item=None, codigo_empresa=None):
+    df_saldo_base = _carregar_saldoit(
+        engine_base, codigo_item=codigo_item, codigo_empresa=codigo_empresa
+    )
+    df_saldo_atual = _carregar_saldoit(
+        engine_atual, codigo_item=codigo_item, codigo_empresa=codigo_empresa
+    )
+    df_mov = _carregar_movest(
+        engine_atual, data_corte, codigo_item=codigo_item, codigo_empresa=codigo_empresa
+    )
+    auditar_por_empresa = codigo_empresa is not None
 
     saldo_base_item = df_saldo_base.groupby("cditem")["saldo"].sum().to_dict()
     saldo_base_emp = df_saldo_base.set_index(["cditem", "cdemp"])["saldo"].to_dict()
@@ -133,40 +149,42 @@ def auditar_movest(engine_base, engine_atual, data_corte, codigo_item=None):
             empresas_por_item.setdefault(cditem, set()).add(cdemp)
 
             esperado_geral = float(saldo_calc_item.get(cditem, 0))
-            encontrado_geral = float(row["saldoant"])
-            if abs(encontrado_geral - esperado_geral) > 0.000001:
-                _add_discrepancia(
-                    discrepancias,
-                    "saldoant_movest",
-                    cditem,
-                    esperado_geral,
-                    encontrado_geral,
-                    cdemp=cdemp,
-                    data_mov=row["data_mov"],
-                    numdoc=row["numdoc"],
-                    seqit=row["seqit_sort"],
-                    st=row["st"],
-                    qtde=row["qtde"],
-                    detalhe="Saldo geral anterior divergente do acumulado anterior do item.",
-                )
-
             esperado_emp = float(saldo_calc_emp.get((cditem, cdemp), 0))
-            encontrado_emp = float(row["SldAntEmp"])
-            if abs(encontrado_emp - esperado_emp) > 0.000001:
-                _add_discrepancia(
-                    discrepancias,
-                    "sldantemp_movest",
-                    cditem,
-                    esperado_emp,
-                    encontrado_emp,
-                    cdemp=cdemp,
-                    data_mov=row["data_mov"],
-                    numdoc=row["numdoc"],
-                    seqit=row["seqit_sort"],
-                    st=row["st"],
-                    qtde=row["qtde"],
-                    detalhe="Saldo por empresa anterior divergente do acumulado anterior do item/empresa.",
-                )
+
+            if auditar_por_empresa:
+                encontrado_emp = float(row["SldAntEmp"])
+                if abs(encontrado_emp - esperado_emp) > 0.000001:
+                    _add_discrepancia(
+                        discrepancias,
+                        "sldantemp_movest",
+                        cditem,
+                        esperado_emp,
+                        encontrado_emp,
+                        cdemp=cdemp,
+                        data_mov=row["data_mov"],
+                        numdoc=row["numdoc"],
+                        seqit=row["seqit_sort"],
+                        st=row["st"],
+                        qtde=row["qtde"],
+                        detalhe="Saldo por empresa anterior divergente do acumulado anterior do item/empresa.",
+                    )
+            else:
+                encontrado_geral = float(row["saldoant"])
+                if abs(encontrado_geral - esperado_geral) > 0.000001:
+                    _add_discrepancia(
+                        discrepancias,
+                        "saldoant_movest",
+                        cditem,
+                        esperado_geral,
+                        encontrado_geral,
+                        cdemp=cdemp,
+                        data_mov=row["data_mov"],
+                        numdoc=row["numdoc"],
+                        seqit=row["seqit_sort"],
+                        st=row["st"],
+                        qtde=row["qtde"],
+                        detalhe="Saldo geral anterior divergente do acumulado anterior do item.",
+                    )
 
             delta = _delta_movimento(float(row["qtde"]), row["st"])
             saldo_calc_item[cditem] = esperado_geral + delta
@@ -177,42 +195,47 @@ def auditar_movest(engine_base, engine_atual, data_corte, codigo_item=None):
         itens_auditados.add(codigo_item)
 
     for cditem in sorted(itens_auditados):
-        esperado_geral = float(saldo_calc_item.get(cditem, saldo_base_item.get(cditem, 0)))
-        encontrado_geral = float(saldo_atual_item.get(cditem, 0))
-        if abs(encontrado_geral - esperado_geral) > 0.000001:
-            _add_discrepancia(
-                discrepancias,
-                "saldo_final_geral_t_saldoit",
-                cditem,
-                esperado_geral,
-                encontrado_geral,
-                detalhe="Soma final do item em t_saldoit divergente do saldo calculado pela T_MOVEST.",
-            )
+        if auditar_por_empresa:
+            empresas_item = {
+                emp for item, emp in saldo_base_emp if item == cditem
+            } | {
+                emp for item, emp in saldo_atual_emp if item == cditem
+            } | empresas_por_item.get(cditem, set())
 
-        empresas_item = {
-            emp for item, emp in saldo_base_emp if item == cditem
-        } | {
-            emp for item, emp in saldo_atual_emp if item == cditem
-        } | empresas_por_item.get(cditem, set())
-
-        for cdemp in sorted(empresas_item):
-            esperado_emp = float(saldo_calc_emp.get((cditem, cdemp), saldo_base_emp.get((cditem, cdemp), 0)))
-            encontrado_emp = float(saldo_atual_emp.get((cditem, cdemp), 0))
-            if abs(encontrado_emp - esperado_emp) > 0.000001:
+            for cdemp in sorted(empresas_item):
+                esperado_emp = float(
+                    saldo_calc_emp.get((cditem, cdemp), saldo_base_emp.get((cditem, cdemp), 0))
+                )
+                encontrado_emp = float(saldo_atual_emp.get((cditem, cdemp), 0))
+                if abs(encontrado_emp - esperado_emp) > 0.000001:
+                    _add_discrepancia(
+                        discrepancias,
+                        "saldo_final_empresa_t_saldoit",
+                        cditem,
+                        esperado_emp,
+                        encontrado_emp,
+                        cdemp=cdemp,
+                        detalhe="Saldo final do item/empresa em t_saldoit divergente do saldo calculado pela T_MOVEST.",
+                    )
+        else:
+            esperado_geral = float(saldo_calc_item.get(cditem, saldo_base_item.get(cditem, 0)))
+            encontrado_geral = float(saldo_atual_item.get(cditem, 0))
+            if abs(encontrado_geral - esperado_geral) > 0.000001:
                 _add_discrepancia(
                     discrepancias,
-                    "saldo_final_empresa_t_saldoit",
+                    "saldo_final_geral_t_saldoit",
                     cditem,
-                    esperado_emp,
-                    encontrado_emp,
-                    cdemp=cdemp,
-                    detalhe="Saldo final do item/empresa em t_saldoit divergente do saldo calculado pela T_MOVEST.",
+                    esperado_geral,
+                    encontrado_geral,
+                    detalhe="Soma final do item em t_saldoit divergente do saldo calculado pela T_MOVEST.",
                 )
 
     df_discrepancias = pd.DataFrame(discrepancias)
     resumo = {
         "data_corte": data_corte,
         "codigo_item": codigo_item,
+        "codigo_empresa": codigo_empresa,
+        "campo_auditado": "SldAntEmp" if auditar_por_empresa else "saldoant",
         "qtd_movimentos_auditados": int(len(df_mov)),
         "qtd_itens_auditados": int(len(itens_auditados)),
         "qtd_discrepancias": int(len(df_discrepancias)),
@@ -220,13 +243,14 @@ def auditar_movest(engine_base, engine_atual, data_corte, codigo_item=None):
     return df_discrepancias, resumo
 
 
-def salvar_relatorio_auditoria(df_discrepancias, codigo_item=None):
+def salvar_relatorio_auditoria(df_discrepancias, codigo_item=None, codigo_empresa=None):
     pasta_saida = Path("relatorios_gerados")
     pasta_saida.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     sufixo_item = f"_item_{codigo_item}" if codigo_item is not None else "_todos"
-    caminho_saida = pasta_saida / f"auditoria_movest{sufixo_item}_{timestamp}.csv"
+    sufixo_empresa = f"_emp_{codigo_empresa}" if codigo_empresa is not None else ""
+    caminho_saida = pasta_saida / f"auditoria_movest{sufixo_item}{sufixo_empresa}_{timestamp}.csv"
 
     if df_discrepancias.empty:
         pd.DataFrame(
