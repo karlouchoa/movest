@@ -18,6 +18,8 @@ COLUNAS_UNIFICADAS = [
     "codusu",
     "ip",
     "empven",
+    "Preco",
+    "valor",
     "SEQIT",
     "_ordem",
 ]
@@ -109,6 +111,24 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
 
     q_vendas = text(
         f"""
+    WITH itens_venda AS (
+        SELECT
+            iv.*,
+            ROW_NUMBER() OVER (
+                PARTITION BY
+                    iv.nrven_iv,
+                    iv.cdemp_iv,
+                    iv.cditem_iv,
+                    ISNULL(iv.empitem, 1),
+                    ISNULL(iv.qtdeSol_iv, 0),
+                    ISNULL(iv.deitem_iv, ''),
+                    ISNULL(iv.st, ''),
+                    ISNULL(iv.precven_iv, 0),
+                    ISNULL(iv.precpra_iv, 0)
+                ORDER BY iv.registro
+            ) AS dup_rn
+        FROM T_ITSVEN iv
+    )
     SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc,
            iv.cdemp_iv as cdemp, iv.cditem_iv as cditem, iv.qtdeSol_iv as qtde,
            CASE WHEN v.TrocReq = 'S' THEN 'T' ELSE 'V' END as especie,
@@ -117,27 +137,32 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
                WHEN v.status_v = 'C' THEN 'E'
                ELSE iv.st
            END as st,
-           1 as clifor, 1 as empfor, 1 as empitem,
+           1 as clifor, 1 as empfor, ISNULL(iv.empitem, 1) as empitem,
            v.obsven_v as obs, CAST(v.obsven_v AS VARCHAR(255)) as obsit, v.codusu_v as codusu,
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
+           CAST(ISNULL(iv.precpra_iv, 0) AS DECIMAL(18, 4)) as Preco,
+           CAST(ISNULL(iv.precpra_iv, 0) * ISNULL(iv.qtdeSol_iv, 0) AS DECIMAL(18, 4)) as valor,
            iv.registro as SEQIT,
            (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) + 1 as _ordem
-    FROM T_ITSVEN iv
+    FROM itens_venda iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
     {filtro_item_vendas}
+      AND (ISNULL(v.TrocReq, 'N') <> 'S' OR iv.dup_rn = 1)
 
     UNION ALL
 
     SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc,
            iv.cdemp_iv as cdemp, iv.cditem_iv as cditem, iv.qtdeSol_iv as qtde,
            'V' as especie, 'S' as st,
-           1 as clifor, 1 as empfor, 1 as empitem,
+           1 as clifor, 1 as empfor, ISNULL(iv.empitem, 1) as empitem,
            v.obsven_v as obs, CAST(v.obsven_v AS VARCHAR(255)) as obsit, v.codusu_v as codusu,
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
+           CAST(ISNULL(iv.precpra_iv, 0) AS DECIMAL(18, 4)) as Preco,
+           CAST(ISNULL(iv.precpra_iv, 0) * ISNULL(iv.qtdeSol_iv, 0) AS DECIMAL(18, 4)) as valor,
            iv.registro as SEQIT,
            (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) as _ordem
-    FROM T_ITSVEN iv
+    FROM itens_venda iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
       {filtro_item_vendas}
@@ -165,6 +190,8 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            1 as clifor, 1 as empfor, 1 as empitem,
            p.obscmp as obs, CAST(p.obscmp AS VARCHAR(255)) as obsit, p.UsuSta as codusu,
            CAST(p.HOSTNAME AS VARCHAR(50)) as ip, p.cdemp as empven,
+           CAST(0 AS DECIMAL(18, 4)) as Preco,
+           CAST(0 AS DECIMAL(18, 4)) as valor,
            it.Registro as SEQIT,
            COALESCE(TRY_CAST(p.NrReq AS BIGINT), 0) as _ordem
     FROM T_ITPDC it
@@ -183,6 +210,8 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            1 as clifor, 1 as empfor, 1 as empitem,
            t.observacao as obs, CAST(t.observacao AS VARCHAR(255)) as obsit, t.codusu_transf as codusu,
            CAST(t.codusu_rec AS VARCHAR(50)) as ip, t.cdempsaida as empven,
+           CAST(0 AS DECIMAL(18, 4)) as Preco,
+           CAST(0 AS DECIMAL(18, 4)) as valor,
            it.cditemtransf as SEQIT,
            COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem
     FROM T_ITTRANSF it
@@ -199,6 +228,8 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            1 as clifor, 1 as empfor, 1 as empitem,
            t.observacao as obs, CAST(t.observacao AS VARCHAR(255)) as obsit, t.codusu_transf as codusu,
            CAST(t.codusu_rec AS VARCHAR(50)) as ip, t.cdempsaida as empven,
+           CAST(0 AS DECIMAL(18, 4)) as Preco,
+           CAST(0 AS DECIMAL(18, 4)) as valor,
            it.cditemtransf as SEQIT,
            COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem
     FROM T_ITTRANSF it
@@ -233,6 +264,8 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            1 as clifor, 1 as empfor, 1 as empitem,
            obs, CAST(obs AS VARCHAR(255)) as obsit, codusu,
            {ip_expr_inv} as ip, cdemp as empven,
+           CAST(0 AS DECIMAL(18, 4)) as Preco,
+           CAST(0 AS DECIMAL(18, 4)) as valor,
            {seqit_expr_inv} as SEQIT,
            {ordem_expr_inv} as _ordem
     FROM dbo.{tabela_inv}
@@ -248,6 +281,8 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            1 as clifor, 1 as empfor, 1 as empitem,
            m.obs, CAST(m.obs AS VARCHAR(255)) as obsit, m.codusu,
            {ip_expr_inv_m} as ip, m.cdemp as empven,
+           CAST(0 AS DECIMAL(18, 4)) as Preco,
+           CAST(0 AS DECIMAL(18, 4)) as valor,
            {seqit_expr_inv_m} as SEQIT,
            {ordem_expr_inv_m} as _ordem
     FROM dbo.{tabela_inv} m

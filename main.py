@@ -126,7 +126,10 @@ def preparar_colunas_para_insert(df_novos, colunas_destino):
         df_novos["empmov"] = df_novos["cdemp"]
 
     if "empitem" in colunas_destino:
-        df_novos["empitem"] = 1
+        if "empitem" not in df_novos.columns:
+            df_novos["empitem"] = 1
+        else:
+            df_novos.loc[df_novos["empitem"].isna(), "empitem"] = 1
 
     if "empfor" in colunas_destino:
         if "empfor" not in df_novos.columns:
@@ -152,6 +155,10 @@ def preparar_colunas_para_insert(df_novos, colunas_destino):
 
     if "Preco" in colunas_destino and "Preco" not in df_novos.columns:
         df_novos["Preco"] = 0
+    if "valor" in colunas_destino and "valor" not in df_novos.columns:
+        df_novos["valor"] = 0
+    if "Valor" in colunas_destino and "Valor" not in df_novos.columns:
+        df_novos["Valor"] = 0
     if "Desconto" in colunas_destino and "Desconto" not in df_novos.columns:
         df_novos["Desconto"] = 0
     if "custo" in colunas_destino and "custo" not in df_novos.columns:
