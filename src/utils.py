@@ -119,18 +119,77 @@ def recriar_indices(tabela_destino="T_MOVEST"):
     return create_scripts, _salvar_scripts_indices_padrao(tabela_destino, create_scripts)
 
 
-def atualizar_saldos_finais(conn, saldos_finais_item_emp, chunk_size=1000):
-    atualizacoes = [
-        {"s": saldo, "i": cditem, "e": cdemp}
-        for (cditem, cdemp), saldo in saldos_finais_item_emp.items()
-    ]
-
-    for inicio in range(0, len(atualizacoes), chunk_size):
-        lote = atualizacoes[inicio : inicio + chunk_size]
+def _tem_coluna(conn, tabela, coluna):
+    return bool(
         conn.execute(
-            text("UPDATE t_saldoit SET saldo = :s WHERE cditem = :i AND cdemp = :e"),
-            lote,
-        )
+            text(
+                """
+                SELECT TOP 1 1
+                FROM sys.columns
+                WHERE object_id = OBJECT_ID(:table_name)
+                  AND name = :column_name
+                """
+            ),
+            {"table_name": f"dbo.{tabela}", "column_name": coluna},
+        ).scalar()
+    )
+
+
+def atualizar_saldos_finais(conn, codigo_item=None):
+    coluna_data = "[DataLan]" if _tem_coluna(conn, "T_MOVEST", "DataLan") else "[data]"
+    coluna_nrlan = "TRY_CAST([nrlan] AS BIGINT)" if _tem_coluna(conn, "T_MOVEST", "nrlan") else "0"
+    if _tem_coluna(conn, "T_MOVEST", "SEQIT"):
+        coluna_seqit = "TRY_CAST([SEQIT] AS BIGINT)"
+    elif _tem_coluna(conn, "T_MOVEST", "Registro"):
+        coluna_seqit = "TRY_CAST([Registro] AS BIGINT)"
+    else:
+        coluna_seqit = "0"
+    coluna_numdoc = "TRY_CAST([numdoc] AS BIGINT)" if _tem_coluna(conn, "T_MOVEST", "numdoc") else "0"
+    expr_empitem_movest = "[empitem]" if _tem_coluna(conn, "T_MOVEST", "empitem") else "1"
+    expr_empitem_saldoit = "s.[empitem]" if _tem_coluna(conn, "t_saldoit", "empitem") else "1"
+
+    filtro_movest = ""
+    filtro_saldoit = ""
+    params = {}
+    if codigo_item is not None:
+        filtro_movest = "WHERE m.cditem = :codigo_item"
+        filtro_saldoit = "WHERE s.cditem = :codigo_item"
+        params["codigo_item"] = codigo_item
+
+    resultado = conn.execute(
+        text(
+            f"""
+            WITH ultimos AS (
+                SELECT
+                    m.cditem,
+                    m.cdemp,
+                    {expr_empitem_movest} AS empitem,
+                    CASE
+                        WHEN m.st = 'E' THEN ISNULL(m.SldAntEmp, 0) + ISNULL(m.qtde, 0)
+                        WHEN m.st = 'S' THEN ISNULL(m.SldAntEmp, 0) - ISNULL(m.qtde, 0)
+                        ELSE ISNULL(m.SldAntEmp, 0)
+                    END AS saldo_final,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY m.cditem, m.cdemp, {expr_empitem_movest}
+                        ORDER BY {coluna_data} DESC, {coluna_nrlan} DESC, {coluna_seqit} DESC, {coluna_numdoc} DESC
+                    ) AS rn
+                FROM dbo.T_MOVEST m
+                {filtro_movest}
+            )
+            UPDATE s
+            SET s.saldo = u.saldo_final
+            FROM dbo.t_saldoit s
+            JOIN ultimos u
+              ON u.rn = 1
+             AND u.cditem = s.cditem
+             AND u.cdemp = s.cdemp
+             AND u.empitem = {expr_empitem_saldoit}
+            {filtro_saldoit}
+            """
+        ),
+        params,
+    )
+    return int(resultado.rowcount or 0)
 
 
 def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"):

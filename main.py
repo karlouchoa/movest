@@ -298,7 +298,6 @@ def main():
     print("5) Calculando saldoant e SldAntEmp...")
     saldo_ant_geral = []
     saldo_ant_emp = []
-    saldos_finais_item_emp = dict(dict_emp) if codigo_item is not None else {}
 
     for _, row in df_novos.iterrows():
         cditem, cdemp = row["cditem"], row["cdemp"]
@@ -312,8 +311,6 @@ def main():
 
         dict_geral[cditem] = saldo_item + delta
         dict_emp[(cditem, cdemp)] = saldo_item_emp + delta
-        saldos_finais_item_emp[(cditem, cdemp)] = dict_emp[(cditem, cdemp)]
-
     df_novos["saldoant"] = saldo_ant_geral
     df_novos["SldAntEmp"] = saldo_ant_emp
 
@@ -339,12 +336,9 @@ def main():
         else:
             print("   Nenhuma movimentacao encontrada para reinserir.")
 
-        if saldos_finais_item_emp:
-            print(f"   Atualizando {len(saldos_finais_item_emp)} saldos em t_saldoit...")
-            atualizar_saldos_finais(conn, saldos_finais_item_emp)
-            print("   Atualizacao de t_saldoit concluida.")
-        else:
-            print("   Nenhum saldo de t_saldoit precisou ser atualizado.")
+        print("   Atualizando t_saldoit com base no ultimo movimento de cada item/empresa...")
+        qtd_saldos_atualizados = atualizar_saldos_finais(conn, codigo_item=codigo_item)
+        print(f"   Registros atualizados em t_saldoit: {qtd_saldos_atualizados}")
 
     if codigo_item is None:
         print("7) Recriando indices, constraints, PK, FK e triggers na nova T_MOVEST...")
