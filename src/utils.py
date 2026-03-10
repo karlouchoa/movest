@@ -165,12 +165,12 @@ def _metadados_colunas_tabela(conn, tabela):
                 c.collation_name,
                 c.is_identity,
                 c.is_computed,
-                ic.seed_value,
-                ic.increment_value,
-                cc.definition AS computed_definition,
+                CONVERT(VARCHAR(100), ic.seed_value) AS seed_value,
+                CONVERT(VARCHAR(100), ic.increment_value) AS increment_value,
+                CONVERT(NVARCHAR(MAX), cc.definition) AS computed_definition,
                 cc.is_persisted,
                 dc.name AS default_name,
-                dc.definition AS default_definition
+                CONVERT(NVARCHAR(MAX), dc.definition) AS default_definition
             FROM sys.columns c
             JOIN sys.types t
               ON t.user_type_id = c.user_type_id
