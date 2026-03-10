@@ -314,6 +314,12 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
                   FROM T_TRANSF t
                   WHERE TRY_CAST(t.codtransf AS BIGINT) = {numdoc_numerico_inv_m}
               )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM T_VENDAS v
+                  WHERE TRY_CAST(v.nrven_v AS BIGINT) = {numdoc_numerico_inv_m}
+                    AND ISNULL(v.TrocReq, 'N') = 'S'
+              )
           )
           OR (m.st = 'E' AND m.especie = 'O')
       )
