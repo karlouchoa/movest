@@ -135,6 +135,148 @@ def _tem_coluna(conn, tabela, coluna):
     )
 
 
+def _colunas_tabela(conn, tabela):
+    rows = conn.execute(
+        text(
+            """
+            SELECT name
+            FROM sys.columns
+            WHERE object_id = OBJECT_ID(:table_name)
+            """
+        ),
+        {"table_name": f"dbo.{tabela}"},
+    ).fetchall()
+    return {row._mapping["name"] for row in rows}
+
+
+def _metadados_colunas_tabela(conn, tabela):
+    rows = conn.execute(
+        text(
+            """
+            SELECT
+                c.name,
+                t.name AS type_name,
+                ts.name AS type_schema_name,
+                t.is_user_defined,
+                c.max_length,
+                c.precision,
+                c.scale,
+                c.is_nullable,
+                c.collation_name,
+                c.is_identity,
+                c.is_computed,
+                ic.seed_value,
+                ic.increment_value,
+                cc.definition AS computed_definition,
+                cc.is_persisted,
+                dc.name AS default_name,
+                dc.definition AS default_definition
+            FROM sys.columns c
+            JOIN sys.types t
+              ON t.user_type_id = c.user_type_id
+            JOIN sys.schemas ts
+              ON ts.schema_id = t.schema_id
+            LEFT JOIN sys.identity_columns ic
+              ON ic.object_id = c.object_id
+             AND ic.column_id = c.column_id
+            LEFT JOIN sys.computed_columns cc
+              ON cc.object_id = c.object_id
+             AND cc.column_id = c.column_id
+            LEFT JOIN sys.default_constraints dc
+              ON dc.parent_object_id = c.object_id
+             AND dc.parent_column_id = c.column_id
+            WHERE c.object_id = OBJECT_ID(:table_name)
+            """
+        ),
+        {"table_name": f"dbo.{tabela}"},
+    ).fetchall()
+    return {row._mapping["name"]: dict(row._mapping) for row in rows}
+
+
+def _formatar_numero_sql(valor):
+    if valor is None:
+        return None
+    try:
+        numero = int(valor)
+        if float(valor) == float(numero):
+            return str(numero)
+    except (TypeError, ValueError):
+        pass
+    return str(valor)
+
+
+def _definicao_tipo_coluna(meta):
+    tipo = meta["type_name"]
+    if meta["is_user_defined"]:
+        base = f"{_q(meta['type_schema_name'])}.{_q(tipo)}"
+    else:
+        base = tipo
+
+    if tipo in {"varchar", "char", "varbinary", "binary"}:
+        tamanho = "MAX" if meta["max_length"] == -1 else str(meta["max_length"])
+        return f"{base}({tamanho})"
+
+    if tipo in {"nvarchar", "nchar"}:
+        tamanho = "MAX" if meta["max_length"] == -1 else str(int(meta["max_length"] / 2))
+        return f"{base}({tamanho})"
+
+    if tipo in {"decimal", "numeric"}:
+        return f"{base}({meta['precision']},{meta['scale']})"
+
+    if tipo in {"datetime2", "datetimeoffset", "time"}:
+        return f"{base}({meta['scale']})"
+
+    return base
+
+
+def _default_fallback_coluna(meta):
+    tipo = meta["type_name"]
+    if tipo in {"bit"}:
+        return "((0))"
+    if tipo in {"tinyint", "smallint", "int", "bigint", "decimal", "numeric", "float", "real", "money", "smallmoney"}:
+        return "((0))"
+    if tipo in {"char", "varchar", "nchar", "nvarchar", "text", "ntext"}:
+        return "('')"
+    if tipo in {"date", "datetime", "smalldatetime", "datetime2", "datetimeoffset"}:
+        return "('19000101')"
+    if tipo in {"time"}:
+        return "('00:00:00')"
+    if tipo in {"uniqueidentifier"}:
+        return "(NEWID())"
+    if tipo in {"binary", "varbinary"}:
+        return "(0x)"
+    return None
+
+
+def _montar_sql_add_coluna(meta, tabela_destino, nome_constraint_default=None, default_definition=None):
+    coluna = _q(meta["name"])
+    if meta["is_computed"]:
+        persisted_sql = " PERSISTED" if meta["is_persisted"] else ""
+        return (
+            f"ALTER TABLE {_table_name(tabela_destino)} "
+            f"ADD {coluna} AS {meta['computed_definition']}{persisted_sql}"
+        )
+
+    partes = [f"ALTER TABLE {_table_name(tabela_destino)} ADD {coluna} {_definicao_tipo_coluna(meta)}"]
+
+    if meta["collation_name"] and meta["type_name"] in {"char", "varchar", "nchar", "nvarchar", "text", "ntext"}:
+        partes.append(f"COLLATE {meta['collation_name']}")
+
+    if meta["is_identity"]:
+        seed = _formatar_numero_sql(meta["seed_value"]) or "1"
+        inc = _formatar_numero_sql(meta["increment_value"]) or "1"
+        partes.append(f"IDENTITY({seed},{inc})")
+
+    default_sql = default_definition
+    if default_sql and nome_constraint_default:
+        partes.append(f"CONSTRAINT {_q(nome_constraint_default)} DEFAULT {default_sql} WITH VALUES")
+    elif default_sql:
+        partes.append(f"DEFAULT {default_sql} WITH VALUES")
+
+    partes.append("NULL" if meta["is_nullable"] else "NOT NULL")
+    return " ".join(partes)
+
+
 def atualizar_saldos_finais(conn, codigo_item=None):
     coluna_data = "[DataLan]" if _tem_coluna(conn, "T_MOVEST", "DataLan") else "[data]"
     coluna_nrlan = "TRY_CAST([nrlan] AS BIGINT)" if _tem_coluna(conn, "T_MOVEST", "nrlan") else "0"
@@ -204,6 +346,8 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
 
     with engine.begin() as conn:
         destino_tem_clustered = _tem_indice_clusterizado(conn, tabela_destino)
+        colunas_destino = _colunas_tabela(conn, tabela_destino)
+        metadados_colunas_origem = _metadados_colunas_tabela(conn, tabela_origem)
 
         default_rows = conn.execute(
             text(
@@ -222,9 +366,18 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
         check_rows = conn.execute(
             text(
                 """
-                SELECT name, definition
-                FROM sys.check_constraints
-                WHERE parent_object_id = OBJECT_ID(:table_name)
+                SELECT
+                    cc.name,
+                    cc.definition,
+                    col.name AS column_name
+                FROM sys.check_constraints cc
+                LEFT JOIN sys.sql_expression_dependencies dep
+                  ON dep.referencing_id = cc.object_id
+                 AND dep.referenced_id = cc.parent_object_id
+                LEFT JOIN sys.columns col
+                  ON col.object_id = cc.parent_object_id
+                 AND col.column_id = dep.referenced_minor_id
+                WHERE cc.parent_object_id = OBJECT_ID(:table_name)
                 """
             ),
             {"table_name": origem_full},
@@ -331,13 +484,14 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             {"table_name": origem_full},
         ).fetchall()
 
-        key_map = defaultdict(list)
+        key_map = defaultdict(lambda: {"defs": [], "column_names": set()})
         key_meta = {}
         for row in key_rows:
             data = row._mapping
             key_meta[data["name"]] = (data["type_desc"], data["index_type_desc"])
             order = " DESC" if data["is_descending_key"] else " ASC"
-            key_map[data["name"]].append(f"{_q(data['column_name'])}{order}")
+            key_map[data["name"]]["defs"].append(f"{_q(data['column_name'])}{order}")
+            key_map[data["name"]]["column_names"].add(data["column_name"])
 
         fk_map = defaultdict(list)
         fk_meta = {}
@@ -351,7 +505,14 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             )
             fk_map[data["name"]].append((data["parent_column_name"], data["ref_column_name"]))
 
-        index_map = defaultdict(lambda: {"keys": [], "includes": [], "meta": None})
+        check_map = defaultdict(lambda: {"definition": None, "column_names": set()})
+        for row in check_rows:
+            data = row._mapping
+            check_map[data["name"]]["definition"] = data["definition"]
+            if data["column_name"]:
+                check_map[data["name"]]["column_names"].add(data["column_name"])
+
+        index_map = defaultdict(lambda: {"keys": [], "includes": [], "meta": None, "column_names": set()})
         for row in index_rows:
             data = row._mapping
             index_map[data["name"]]["meta"] = (
@@ -359,6 +520,7 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 data["is_unique"],
                 data["filter_definition"],
             )
+            index_map[data["name"]]["column_names"].add(data["column_name"])
             if data["is_included_column"]:
                 index_map[data["name"]]["includes"].append(_q(data["column_name"]))
             else:
@@ -367,8 +529,51 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
 
         drop_scripts = []
         create_scripts = []
+        default_constraints_inline = set()
 
-        for name, cols in key_map.items():
+        colunas_importantes = set()
+        for item in key_map.values():
+            colunas_importantes.update(item["column_names"])
+        for item in check_map.values():
+            colunas_importantes.update(item["column_names"])
+        for row in default_rows:
+            colunas_importantes.add(row._mapping["column_name"])
+        for item in index_map.values():
+            colunas_importantes.update(item["column_names"])
+        for pairs in fk_map.values():
+            colunas_importantes.update(parent for parent, _ in pairs)
+
+        colunas_faltantes = [col for col in sorted(colunas_importantes) if col not in colunas_destino]
+        for nome_coluna in colunas_faltantes:
+            meta = metadados_colunas_origem.get(nome_coluna)
+            if not meta:
+                continue
+            meta = dict(meta)
+
+            default_nome = meta.get("default_name")
+            default_def = meta.get("default_definition")
+            if not meta["is_nullable"] and not default_def and not meta["is_identity"] and not meta["is_computed"]:
+                default_def = _default_fallback_coluna(meta)
+                if default_def:
+                    default_nome = f"DF_{tabela_destino}_{nome_coluna}_AUTO"
+                else:
+                    meta["is_nullable"] = True
+
+            create_scripts.append(
+                _montar_sql_add_coluna(
+                    meta,
+                    tabela_destino,
+                    nome_constraint_default=default_nome if default_def else None,
+                    default_definition=default_def,
+                )
+            )
+            colunas_destino.add(nome_coluna)
+            if meta.get("default_name") and default_nome == meta.get("default_name") and default_def:
+                default_constraints_inline.add(meta["default_name"])
+
+        for name, item in key_map.items():
+            if not item["column_names"].issubset(colunas_destino):
+                continue
             key_type, index_type = key_meta[name]
             constraint_type = "PRIMARY KEY" if key_type == "PK_CONSTRAINT" else "UNIQUE"
             clustered = _classificar_tipo_indice(index_type)
@@ -381,19 +586,24 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             create_scripts.append(
                 "ALTER TABLE "
                 f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} {constraint_type} {clustered} "
-                f"({', '.join(cols)})"
+                f"({', '.join(item['defs'])})"
             )
 
-        for row in check_rows:
-            data = row._mapping
-            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(data['name'])}")
+        for name, item in check_map.items():
+            if item["column_names"] and not item["column_names"].issubset(colunas_destino):
+                continue
+            drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(name)}")
             create_scripts.append(
                 "ALTER TABLE "
-                f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(data['name'])} CHECK {data['definition']}"
+                f"{_table_name(tabela_destino)} ADD CONSTRAINT {_q(name)} CHECK {item['definition']}"
             )
 
         for row in default_rows:
             data = row._mapping
+            if data["name"] in default_constraints_inline:
+                continue
+            if data["column_name"] not in colunas_destino:
+                continue
             drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(data['name'])}")
             create_scripts.append(
                 "ALTER TABLE "
@@ -402,6 +612,8 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             )
 
         for name, item in index_map.items():
+            if not item["column_names"].issubset(colunas_destino):
+                continue
             type_desc, is_unique, filter_definition = item["meta"]
             unique_sql = "UNIQUE " if is_unique else ""
             index_type = _classificar_tipo_indice(type_desc)
@@ -419,6 +631,9 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             )
 
         for name, pairs in fk_map.items():
+            colunas_fk = {parent for parent, _ in pairs}
+            if not colunas_fk.issubset(colunas_destino):
+                continue
             delete_action, update_action, ref_schema, ref_table = fk_meta[name]
             parent_cols = ", ".join(_q(parent) for parent, _ in pairs)
             ref_cols = ", ".join(_q(ref) for _, ref in pairs)
