@@ -82,8 +82,8 @@ def _expressao_seqit_tabela(engine, tabela, alias=None):
 
 def _expressao_ordem_inventario(colunas, alias=None):
     if "nrlan" in colunas:
-        return f"CAST({_coluna_tabela('nrlan', alias)} AS BIGINT)"
-    return f"CAST({_coluna_tabela('numdoc', alias)} AS BIGINT)"
+        return f"TRY_CAST({_coluna_tabela('nrlan', alias)} AS BIGINT)"
+    return f"TRY_CAST({_coluna_tabela('numdoc', alias)} AS BIGINT)"
 
 
 def _expressao_numdoc_numerico(alias):
@@ -127,7 +127,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            v.obsven_v as obs, CAST(v.obsven_v AS VARCHAR(255)) as obsit, v.codusu_v as codusu,
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
            iv.registro as SEQIT,
-           (CAST(v.nrven_v AS BIGINT) * 10) + 1 as _ordem
+           (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) + 1 as _ordem
     FROM T_ITSVEN iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
@@ -142,7 +142,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            v.obsven_v as obs, CAST(v.obsven_v AS VARCHAR(255)) as obsit, v.codusu_v as codusu,
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
            iv.registro as SEQIT,
-           (CAST(v.nrven_v AS BIGINT) * 10) as _ordem
+           (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) as _ordem
     FROM T_ITSVEN iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
@@ -172,7 +172,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            p.obscmp as obs, CAST(p.obscmp AS VARCHAR(255)) as obsit, p.UsuSta as codusu,
            CAST(p.HOSTNAME AS VARCHAR(50)) as ip, p.cdemp as empven,
            it.Registro as SEQIT,
-           CAST(p.NrReq AS BIGINT) as _ordem
+           COALESCE(TRY_CAST(p.NrReq AS BIGINT), 0) as _ordem
     FROM T_ITPDC it
     JOIN T_PDC p ON it.Nrreq = p.NrReq
     WHERE p.DtSta >= :data_corte AND p.StaReq IN ('E', 'A')
@@ -190,7 +190,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            t.observacao as obs, CAST(t.observacao AS VARCHAR(255)) as obsit, t.codusu_transf as codusu,
            CAST(t.codusu_rec AS VARCHAR(50)) as ip, t.cdempsaida as empven,
            it.cditemtransf as SEQIT,
-           CAST(t.codtransf AS BIGINT) as _ordem
+           COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem
     FROM T_ITTRANSF it
     JOIN T_TRANSF t ON it.cdtransf = t.codtransf
     WHERE COALESCE(t.datahorarec, t.datahoratransf) >= :data_corte AND t.statustransf = 'E'
@@ -206,7 +206,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            t.observacao as obs, CAST(t.observacao AS VARCHAR(255)) as obsit, t.codusu_transf as codusu,
            CAST(t.codusu_rec AS VARCHAR(50)) as ip, t.cdempsaida as empven,
            it.cditemtransf as SEQIT,
-           CAST(t.codtransf AS BIGINT) as _ordem
+           COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem
     FROM T_ITTRANSF it
     JOIN T_TRANSF t ON it.cdtransf = t.codtransf
     WHERE COALESCE(t.datahorarec, t.datahoratransf) >= :data_corte AND t.statustransf = 'E'
