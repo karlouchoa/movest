@@ -117,6 +117,42 @@ def excluir_movest_por_item(conn, codigo_item, data_corte):
     return int(resultado.rowcount or 0)
 
 
+def revisar_clifor_entradas(conn, codigo_item=None):
+    requisitos = [
+        ("T_MOVEST", "clifor"),
+        ("T_MOVEST", "st"),
+        ("T_MOVEST", "cditem"),
+        ("T_ITENS", "cditem"),
+        ("T_ITENS", "cdfor"),
+    ]
+    for tabela, coluna in requisitos:
+        if not conn.execute(text("SELECT COL_LENGTH(:tabela, :coluna)"), {"tabela": f"dbo.{tabela}", "coluna": coluna}).scalar():
+            return 0
+
+    filtro_item = ""
+    params = {}
+    if codigo_item is not None:
+        filtro_item = " AND m.cditem = :codigo_item"
+        params["codigo_item"] = codigo_item
+
+    resultado = conn.execute(
+        text(
+            f"""
+            UPDATE m
+            SET m.clifor = i.cdfor
+            FROM dbo.T_MOVEST m
+            INNER JOIN dbo.T_ITENS i
+                ON i.cditem = m.cditem
+            WHERE m.st = 'E'
+              AND ISNULL(i.cdfor, 0) <> ISNULL(m.clifor, 0)
+              {filtro_item}
+            """
+        ),
+        params,
+    )
+    return int(resultado.rowcount or 0)
+
+
 def preparar_colunas_para_insert(df_novos, colunas_destino):
     if "clifor" in colunas_destino:
         if "clifor" not in df_novos.columns:
@@ -355,6 +391,10 @@ def main():
             print("   Insercao em T_MOVEST concluida.")
         else:
             print("   Nenhuma movimentacao encontrada para reinserir.")
+
+        print("   Revisando clifor das entradas com base em t_itens.cdfor...")
+        qtd_clifor_revisado = revisar_clifor_entradas(conn, codigo_item=codigo_item)
+        print(f"   Registros com clifor revisado: {qtd_clifor_revisado}")
 
         print("   Atualizando t_saldoit com base no ultimo movimento de cada item/empresa...")
         qtd_saldos_atualizados = atualizar_saldos_finais(conn, codigo_item=codigo_item)
