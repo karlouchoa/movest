@@ -15,10 +15,10 @@ def solicitar_codigo_empresa():
 
 
 def main():
-    servidor, banco_base, banco_atual, codigo_item = solicitar_parametros_conexao()
+    servidor, banco_base, banco_atual, username, password, codigo_item = solicitar_parametros_conexao()
     codigo_empresa = solicitar_codigo_empresa()
-    engine_base = get_engine(servidor, banco_base)
-    engine_atual = get_engine(servidor, banco_atual)
+    engine_base = get_engine(servidor, banco_base, username, password)
+    engine_atual = get_engine(servidor, banco_atual, username, password)
 
     validar_conexao(engine_base, banco_base, "base", servidor)
     validar_conexao(engine_atual, banco_atual, "atual", servidor)

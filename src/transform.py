@@ -5,6 +5,7 @@ COLUNAS_UNIFICADAS = [
     "numdoc",
     "data",
     "datadoc",
+    "DataLan",
     "cdemp",
     "cditem",
     "qtde",
@@ -21,6 +22,7 @@ COLUNAS_UNIFICADAS = [
     "Preco",
     "valor",
     "SEQIT",
+    "_nrlan_origem",
     "_ordem",
 ]
 
@@ -57,11 +59,25 @@ def _coluna_tabela(coluna, alias=None):
 
 
 def _expressao_data_inventario(colunas, alias=None):
+    if "data" in colunas:
+        return _coluna_tabela("[data]", alias)
+    if "datalan" in colunas:
+        return _coluna_tabela("DataLan", alias)
+    raise RuntimeError("Tabela de inventario nao possui coluna de data valida.")
+
+
+def _expressao_datalan_inventario(colunas, alias=None):
     if "datalan" in colunas:
         return _coluna_tabela("DataLan", alias)
     if "data" in colunas:
         return _coluna_tabela("[data]", alias)
-    raise RuntimeError("Tabela de inventario nao possui coluna de data valida.")
+    raise RuntimeError("Tabela de inventario nao possui coluna DataLan/data valida.")
+
+
+def _expressao_datadoc_inventario(colunas, alias=None):
+    if "datadoc" in colunas:
+        return _coluna_tabela("datadoc", alias)
+    raise RuntimeError("Tabela de inventario nao possui coluna datadoc valida.")
 
 
 def _expressao_ip_inventario(colunas, alias=None):
@@ -94,6 +110,12 @@ def _expressao_ordem_inventario(colunas, alias=None):
     return f"TRY_CAST({_coluna_tabela('numdoc', alias)} AS BIGINT)"
 
 
+def _expressao_nrlan_inventario(colunas, alias=None):
+    if "nrlan" in colunas:
+        return f"TRY_CAST({_coluna_tabela('nrlan', alias)} AS BIGINT)"
+    return "CAST(NULL AS BIGINT)"
+
+
 def _expressao_numdoc_numerico(alias):
     numdoc_texto = f"LTRIM(RTRIM(CAST({_coluna_tabela('numdoc', alias)} AS VARCHAR(50))))"
     return f"TRY_CAST(NULLIF({numdoc_texto}, '') AS BIGINT)"
@@ -113,7 +135,14 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
         filtro_item_inv = "\n      AND cditem = :codigo_item"
         params["codigo_item"] = codigo_item
 
-    seqit_expr_movest_m = _expressao_seqit_tabela(engine, "T_MOVEST", alias="m")
+    if tabela_inventario:
+        tabela_inv = _resolver_nome_tabela(engine, tabela_inventario)
+        if not tabela_inv:
+            raise RuntimeError(f"Tabela de inventario informada nao encontrada: {tabela_inventario}")
+    else:
+        tabela_inv = _detectar_tabela_inventario(engine)
+
+    seqit_expr_movest_m = _expressao_seqit_tabela(engine, tabela_inv, alias="m")
 
     q_vendas = text(
         f"""
@@ -141,7 +170,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
             ) AS dup_rn
         FROM T_ITSVEN iv
     )
-    SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc,
+    SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc, v.emisven_v as DataLan,
            iv.cdemp_iv as cdemp, iv.cditem_iv as cditem, iv.qtdeSol_iv as qtde,
            CASE WHEN v.TrocReq = 'S' THEN 'T' ELSE 'V' END as especie,
            CASE
@@ -154,7 +183,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
            CAST(ISNULL(iv.precpra_iv, 0) AS DECIMAL(18, 4)) as Preco,
            CAST(ISNULL(iv.precpra_iv, 0) * ISNULL(iv.qtdeSol_iv, 0) AS DECIMAL(18, 4)) as valor,
-           iv.registro as SEQIT,
+           iv.registro as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
            (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) + 1 as _ordem
     FROM itens_venda iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
@@ -164,7 +193,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
 
     UNION ALL
 
-    SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc,
+    SELECT v.nrven_v as numdoc, v.emisven_v as data, v.emisven_v as datadoc, v.emisven_v as DataLan,
            iv.cdemp_iv as cdemp, iv.cditem_iv as cditem, iv.qtdeSol_iv as qtde,
            'V' as especie, 'S' as st,
            ISNULL(v.cdcli_v, 1) as clifor, 1 as empfor, ISNULL(iv.empitem, 1) as empitem,
@@ -172,7 +201,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            CAST(v.ip AS VARCHAR(50)) as ip, v.cdemp_v as empven,
            CAST(ISNULL(iv.precpra_iv, 0) AS DECIMAL(18, 4)) as Preco,
            CAST(ISNULL(iv.precpra_iv, 0) * ISNULL(iv.qtdeSol_iv, 0) AS DECIMAL(18, 4)) as valor,
-           iv.registro as SEQIT,
+           iv.registro as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
            (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) as _ordem
     FROM itens_venda iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
@@ -182,7 +211,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
       AND ISNULL(v.TrocReq, 'N') <> 'S'
       AND NOT EXISTS (
           SELECT 1
-          FROM T_MOVEST m
+          FROM dbo.{tabela_inv} m
           WHERE m.numdoc = v.nrven_v
             AND m.st = 'S'
             AND m.especie = 'V'
@@ -195,7 +224,9 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
 
     q_pdc = text(
         f"""
-    SELECT p.nrNFC as numdoc, p.DtSta as data, p.DtSta as datadoc,
+    SELECT p.nrNFC as numdoc, p.DtSta as data,
+           p.Dtche as datadoc,
+           p.DtSta as DataLan,
            p.empent as cdemp, it.cditem as cditem, it.QtSol as qtde,
            CASE WHEN p.StaReq = 'E' THEN 'C' ELSE 'D' END as especie,
            'E' as st,
@@ -204,7 +235,7 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            CAST(p.HOSTNAME AS VARCHAR(50)) as ip, p.cdemp as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
-           it.Registro as SEQIT,
+           it.Registro as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
            COALESCE(TRY_CAST(p.NrReq AS BIGINT), 0) as _ordem
     FROM T_ITPDC it
     JOIN T_PDC p ON it.Nrreq = p.NrReq
@@ -215,8 +246,9 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
 
     q_transf = text(
         f"""
-    SELECT t.codtransf as numdoc, COALESCE(t.datahorarec, t.datahoratransf) as data,
-           COALESCE(t.datahorarec, t.datahoratransf) as datadoc,
+    SELECT t.codtransf as numdoc, t.datahorarec as data,
+           t.datahorarec as datadoc,
+           t.datahorarec as DataLan,
            t.cdempsaida as cdemp, it.cditem as cditem, it.qtditem as qtde,
            'F' as especie, 'S' as st,
            1 as clifor, 1 as empfor, 1 as empitem,
@@ -224,17 +256,18 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            CAST(t.codusu_rec AS VARCHAR(50)) as ip, t.cdempsaida as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
-           it.cditemtransf as SEQIT,
+           it.cditemtransf as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
            COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem
     FROM T_ITTRANSF it
     JOIN T_TRANSF t ON it.cdtransf = t.codtransf
-    WHERE COALESCE(t.datahorarec, t.datahoratransf) >= :data_corte AND t.statustransf = 'E'
+    WHERE t.datahorarec >= :data_corte AND t.statustransf = 'E'
       {filtro_item_transf}
 
     UNION ALL
 
-    SELECT t.codtransf as numdoc, COALESCE(t.datahorarec, t.datahoratransf) as data,
-           COALESCE(t.datahorarec, t.datahoratransf) as datadoc,
+    SELECT t.codtransf as numdoc, t.datahorarec as data,
+           t.datahorarec as datadoc,
+           t.datahorarec as DataLan,
            t.cdempentrada as cdemp, it.cditem as cditem, it.qtditem as qtde,
            'F' as especie, 'E' as st,
            1 as clifor, 1 as empfor, 1 as empitem,
@@ -242,65 +275,63 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
            CAST(t.codusu_rec AS VARCHAR(50)) as ip, t.cdempsaida as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
-           it.cditemtransf as SEQIT,
+           it.cditemtransf as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
            COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem
     FROM T_ITTRANSF it
     JOIN T_TRANSF t ON it.cdtransf = t.codtransf
-    WHERE COALESCE(t.datahorarec, t.datahoratransf) >= :data_corte AND t.statustransf = 'E'
+    WHERE t.datahorarec >= :data_corte AND t.statustransf = 'E'
       {filtro_item_transf}
     """
     )
 
-    if tabela_inventario:
-        tabela_inv = _resolver_nome_tabela(engine, tabela_inventario)
-        if not tabela_inv:
-            raise RuntimeError(f"Tabela de inventario informada nao encontrada: {tabela_inventario}")
-    else:
-        tabela_inv = _detectar_tabela_inventario(engine)
-
     colunas_inv = _colunas_tabela(engine, tabela_inv)
     data_expr_inv = _expressao_data_inventario(colunas_inv)
+    datalan_expr_inv = _expressao_datalan_inventario(colunas_inv)
+    datadoc_expr_inv = _expressao_datadoc_inventario(colunas_inv)
     ip_expr_inv = _expressao_ip_inventario(colunas_inv)
     seqit_expr_inv = _expressao_seqit_inventario(colunas_inv)
+    nrlan_expr_inv = _expressao_nrlan_inventario(colunas_inv)
     ordem_expr_inv = _expressao_ordem_inventario(colunas_inv)
     data_expr_inv_m = _expressao_data_inventario(colunas_inv, alias="m")
+    datalan_expr_inv_m = _expressao_datalan_inventario(colunas_inv, alias="m")
+    datadoc_expr_inv_m = _expressao_datadoc_inventario(colunas_inv, alias="m")
     ip_expr_inv_m = _expressao_ip_inventario(colunas_inv, alias="m")
     seqit_expr_inv_m = _expressao_seqit_inventario(colunas_inv, alias="m")
+    nrlan_expr_inv_m = _expressao_nrlan_inventario(colunas_inv, alias="m")
     clifor_expr_inv_m = _expressao_clifor_inventario(colunas_inv, alias="m")
     ordem_expr_inv_m = _expressao_ordem_inventario(colunas_inv, alias="m")
     numdoc_numerico_inv_m = _expressao_numdoc_numerico(alias="m")
 
     q_inv = text(
         f"""
-    SELECT numdoc, {data_expr_inv} as data, {data_expr_inv} as datadoc,
+    SELECT numdoc, {data_expr_inv} as data, {datadoc_expr_inv} as datadoc, {data_expr_inv} as DataLan,
            cdemp, cditem, qtde, 'I' as especie, st,
            1 as clifor, 1 as empfor, 1 as empitem,
            obs, CAST(obs AS VARCHAR(255)) as obsit, codusu,
            {ip_expr_inv} as ip, cdemp as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
-           {seqit_expr_inv} as SEQIT,
+           {seqit_expr_inv} as SEQIT, {nrlan_expr_inv} as _nrlan_origem,
            {ordem_expr_inv} as _ordem
     FROM dbo.{tabela_inv}
-    WHERE especie = 'I' AND {data_expr_inv} >= :data_corte AND {data_expr_inv} <= GETDATE()
+    WHERE especie = 'I' AND {datalan_expr_inv} >= :data_corte
       {filtro_item_inv}
     """
     )
 
     q_avulsas = text(
         f"""
-    SELECT m.numdoc, {data_expr_inv_m} as data, {data_expr_inv_m} as datadoc,
+    SELECT m.numdoc, {data_expr_inv_m} as data, {datadoc_expr_inv_m} as datadoc, {data_expr_inv_m} as DataLan,
            m.cdemp, m.cditem, m.qtde, m.especie, m.st,
            {clifor_expr_inv_m} as clifor, 1 as empfor, 1 as empitem,
            m.obs, CAST(m.obs AS VARCHAR(255)) as obsit, m.codusu,
            {ip_expr_inv_m} as ip, m.cdemp as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
-           {seqit_expr_inv_m} as SEQIT,
+           {seqit_expr_inv_m} as SEQIT, {nrlan_expr_inv_m} as _nrlan_origem,
            {ordem_expr_inv_m} as _ordem
     FROM dbo.{tabela_inv} m
-    WHERE {data_expr_inv_m} >= :data_corte
-      AND {data_expr_inv_m} <= GETDATE()
+    WHERE {datalan_expr_inv_m} >= :data_corte
       {"AND m.cditem = :codigo_item" if codigo_item is not None else ""}
       AND (
           (m.st = 'S' AND m.especie IN ('C', 'O', 'A'))

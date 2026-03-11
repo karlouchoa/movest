@@ -1,8 +1,10 @@
 from datetime import datetime
+import os
 
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from dotenv import load_dotenv
 
 from src.database import get_engine
 from src.transform import extrair_movimentacoes_novas
@@ -10,9 +12,22 @@ from src.utils import atualizar_saldos_finais, replicar_estrutura_t_movest
 
 
 def solicitar_parametros_conexao():
-    servidor = input("Informe o servidor/instancia SQL [localhost]: ").strip() or "localhost"
-    banco_base = input("Informe o nome do banco base (origem): ").strip()
-    banco_atual = input("Informe o nome do banco atual (destino): ").strip()
+    load_dotenv()
+
+    servidor = os.getenv("DB_SERVER", "").strip()
+    if not servidor:
+        servidor = input("Informe o servidor/instancia SQL [localhost]: ").strip() or "localhost"
+
+    banco_base = os.getenv("DB_BASE", "").strip()
+    if not banco_base:
+        banco_base = input("Informe o nome do banco base (origem): ").strip()
+
+    banco_atual = os.getenv("DB_ATUAL", "").strip()
+    if not banco_atual:
+        banco_atual = input("Informe o nome do banco atual (destino): ").strip()
+
+    username = os.getenv("DB_USER", "").strip()
+    password = os.getenv("DB_PASSWORD", "").strip()
     codigo_item_raw = input("Informe o codigo do item [todos]: ").strip()
 
     if not banco_base:
@@ -26,7 +41,7 @@ def solicitar_parametros_conexao():
             raise ValueError("O codigo do item deve ser um numero inteiro maior que zero.")
         codigo_item = int(codigo_item_raw)
 
-    return servidor, banco_base, banco_atual, codigo_item
+    return servidor, banco_base, banco_atual, username, password, codigo_item
 
 
 def validar_conexao(engine, nome_banco, papel, servidor):
@@ -42,6 +57,26 @@ def validar_conexao(engine, nome_banco, papel, servidor):
 
 def preparar_t_movest_destino(engine_base, engine_atual, codigo_item=None):
     tabela_inventario = None
+
+    with engine_base.connect() as conn_base:
+        base_db = conn_base.execute(text("SELECT DB_NAME()")).scalar()
+        existe_origem = conn_base.execute(
+            text(
+                """
+                SELECT 1
+                FROM sys.tables t
+                JOIN sys.schemas s ON s.schema_id = t.schema_id
+                WHERE s.name = 'dbo' AND t.name = 'T_MOVEST'
+                """
+            )
+        ).scalar()
+
+    if not base_db:
+        raise RuntimeError("Nao foi possivel identificar o nome do banco base conectado.")
+    if not existe_origem:
+        raise RuntimeError(
+            f"A tabela dbo.T_MOVEST nao foi encontrada no banco base '{base_db}'."
+        )
 
     with engine_atual.begin() as conn:
         existe = conn.execute(
@@ -67,8 +102,8 @@ def preparar_t_movest_destino(engine_base, engine_atual, codigo_item=None):
             tabela_inventario = f"T_MOVEST_INV_{sufixo}"
             conn.execute(text(f"EXEC sp_rename 'dbo.T_MOVEST', '{tabela_inventario}'"))
 
-        base_db = (engine_base.url.database or "Bancobase").replace("]", "]]")
-        conn.execute(text(f"SELECT * INTO dbo.T_MOVEST FROM [{base_db}].dbo.T_MOVEST"))
+        base_db_escaped = str(base_db).replace("]", "]]")
+        conn.execute(text(f"SELECT * INTO dbo.T_MOVEST FROM [{base_db_escaped}].dbo.T_MOVEST"))
         return tabela_inventario
 
 
@@ -154,77 +189,105 @@ def revisar_clifor_entradas(conn, codigo_item=None):
 
 
 def preparar_colunas_para_insert(df_novos, colunas_destino):
-    if "clifor" in colunas_destino:
+    mapa_destino = {str(col).lower(): str(col) for col in colunas_destino}
+
+    def nome_destino(nome_canonico):
+        return mapa_destino.get(nome_canonico.lower(), nome_canonico)
+
+    coluna_data = nome_destino("data")
+    coluna_datalan = nome_destino("DataLan")
+    coluna_datadoc = nome_destino("datadoc")
+
+    if "data" in df_novos.columns and coluna_datalan in colunas_destino:
+        df_novos[coluna_datalan] = df_novos["data"]
+
+    if nome_destino("clifor") in colunas_destino:
         if "clifor" not in df_novos.columns:
             df_novos["clifor"] = 1
         else:
             df_novos.loc[df_novos["clifor"].isna(), "clifor"] = 1
 
-    if "datadoc" in colunas_destino and "datadoc" not in df_novos.columns:
-        df_novos["datadoc"] = df_novos["data"]
+    if coluna_datadoc in colunas_destino and coluna_datadoc not in df_novos.columns:
+        df_novos[coluna_datadoc] = df_novos["data"]
 
-    if "DataLan" in colunas_destino and "DataLan" not in df_novos.columns:
-        df_novos["DataLan"] = df_novos["data"]
+    if coluna_datalan in colunas_destino and coluna_datalan not in df_novos.columns:
+        df_novos[coluna_datalan] = df_novos["data"]
 
-    if "data" in colunas_destino and "data" not in df_novos.columns and "DataLan" in df_novos.columns:
-        df_novos["data"] = df_novos["DataLan"]
+    if coluna_data in colunas_destino and coluna_data not in df_novos.columns and coluna_datalan in df_novos.columns:
+        df_novos[coluna_data] = df_novos[coluna_datalan]
 
-    if "empmov" in colunas_destino and "empmov" not in df_novos.columns and "cdemp" in df_novos.columns:
-        df_novos["empmov"] = df_novos["cdemp"]
+    renomear = {}
+    for col in list(df_novos.columns):
+        destino = mapa_destino.get(str(col).lower())
+        if destino and destino != col:
+            renomear[col] = destino
+    if renomear:
+        df_novos = df_novos.rename(columns=renomear)
 
-    if "empitem" in colunas_destino:
-        if "empitem" not in df_novos.columns:
-            df_novos["empitem"] = 1
+    if nome_destino("empmov") in colunas_destino and nome_destino("empmov") not in df_novos.columns and "cdemp" in df_novos.columns:
+        df_novos[nome_destino("empmov")] = df_novos["cdemp"]
+
+    if nome_destino("empitem") in colunas_destino:
+        if nome_destino("empitem") not in df_novos.columns:
+            df_novos[nome_destino("empitem")] = 1
         else:
-            df_novos.loc[df_novos["empitem"].isna(), "empitem"] = 1
+            df_novos.loc[df_novos[nome_destino("empitem")].isna(), nome_destino("empitem")] = 1
 
-    if "empfor" in colunas_destino:
-        if "empfor" not in df_novos.columns:
-            df_novos["empfor"] = 1
+    if nome_destino("empfor") in colunas_destino:
+        if nome_destino("empfor") not in df_novos.columns:
+            df_novos[nome_destino("empfor")] = 1
         else:
-            df_novos.loc[df_novos["empfor"].isna(), "empfor"] = 1
+            df_novos.loc[df_novos[nome_destino("empfor")].isna(), nome_destino("empfor")] = 1
 
-    if "empven" in colunas_destino:
-        if "empven" not in df_novos.columns:
-            df_novos["empven"] = df_novos["cdemp"]
+    if nome_destino("empven") in colunas_destino:
+        if nome_destino("empven") not in df_novos.columns:
+            df_novos[nome_destino("empven")] = df_novos["cdemp"]
         else:
-            df_novos.loc[df_novos["empven"].isna(), "empven"] = df_novos.loc[
-                df_novos["empven"].isna(), "cdemp"
+            df_novos.loc[df_novos[nome_destino("empven")].isna(), nome_destino("empven")] = df_novos.loc[
+                df_novos[nome_destino("empven")].isna(), "cdemp"
             ]
 
-    if "obsit" in colunas_destino:
-        if "obsit" not in df_novos.columns:
-            df_novos["obsit"] = df_novos["obs"]
+    if nome_destino("obsit") in colunas_destino:
+        if nome_destino("obsit") not in df_novos.columns:
+            df_novos[nome_destino("obsit")] = df_novos["obs"]
         else:
-            df_novos.loc[df_novos["obsit"].isna(), "obsit"] = df_novos.loc[
-                df_novos["obsit"].isna(), "obs"
+            df_novos.loc[df_novos[nome_destino("obsit")].isna(), nome_destino("obsit")] = df_novos.loc[
+                df_novos[nome_destino("obsit")].isna(), "obs"
             ]
 
-    if "Preco" in colunas_destino and "Preco" not in df_novos.columns:
-        df_novos["Preco"] = 0
-    if "valor" in colunas_destino and "valor" not in df_novos.columns:
-        df_novos["valor"] = 0
-    if "Valor" in colunas_destino and "Valor" not in df_novos.columns:
-        df_novos["Valor"] = 0
-    if "Desconto" in colunas_destino and "Desconto" not in df_novos.columns:
-        df_novos["Desconto"] = 0
-    if "custo" in colunas_destino and "custo" not in df_novos.columns:
-        df_novos["custo"] = 0
-    if "COMPRA" in colunas_destino and "COMPRA" not in df_novos.columns:
-        df_novos["COMPRA"] = 0
+    for coluna_zero in ("Preco", "valor", "Valor", "Desconto", "custo", "COMPRA"):
+        destino = nome_destino(coluna_zero)
+        if destino in colunas_destino and destino not in df_novos.columns:
+            df_novos[destino] = 0
 
-    if "isdeleted" in colunas_destino:
-        if "isdeleted" not in df_novos.columns:
-            df_novos["isdeleted"] = 0
+    if nome_destino("isdeleted") in colunas_destino:
+        if nome_destino("isdeleted") not in df_novos.columns:
+            df_novos[nome_destino("isdeleted")] = 0
         else:
-            df_novos.loc[df_novos["isdeleted"].isna(), "isdeleted"] = 0
+            df_novos.loc[df_novos[nome_destino("isdeleted")].isna(), nome_destino("isdeleted")] = 0
 
     agora = datetime.now()
-    if "createdat" in colunas_destino and "createdat" not in df_novos.columns:
-        df_novos["createdat"] = agora
-    if "updatedat" in colunas_destino and "updatedat" not in df_novos.columns:
-        df_novos["updatedat"] = agora
+    if nome_destino("createdat") in colunas_destino and nome_destino("createdat") not in df_novos.columns:
+        df_novos[nome_destino("createdat")] = agora
+    if nome_destino("updatedat") in colunas_destino and nome_destino("updatedat") not in df_novos.columns:
+        df_novos[nome_destino("updatedat")] = agora
 
+    grupos = {}
+    for col in df_novos.columns:
+        grupos.setdefault(str(col).lower(), []).append(col)
+
+    consolidado = {}
+    ordem_colunas = []
+    for chave, nomes in grupos.items():
+        nome_final = mapa_destino.get(chave, nomes[0])
+        if len(nomes) == 1:
+            consolidado[nome_final] = df_novos[nomes[0]]
+        else:
+            consolidado[nome_final] = df_novos[nomes].bfill(axis=1).iloc[:, 0]
+        ordem_colunas.append(nome_final)
+
+    df_novos = pd.DataFrame(consolidado)
+    df_novos = df_novos.loc[:, ordem_colunas]
     return df_novos
 
 
@@ -278,6 +341,36 @@ def normalizar_tipos_para_insert(df_para_gravar, conn):
     return df_para_gravar
 
 
+def validar_datalan_igual_data(df_para_gravar):
+    mapa = {str(col).lower(): str(col) for col in df_para_gravar.columns}
+    coluna_data = mapa.get("data")
+    coluna_datalan = mapa.get("datalan")
+    if not coluna_data or not coluna_datalan:
+        return
+
+    serie_data = pd.to_datetime(df_para_gravar.loc[:, coluna_data], errors="coerce")
+    if isinstance(serie_data, pd.DataFrame):
+        serie_data = serie_data.bfill(axis=1).iloc[:, 0]
+
+    serie_datalan = pd.to_datetime(df_para_gravar.loc[:, coluna_datalan], errors="coerce")
+    if isinstance(serie_datalan, pd.DataFrame):
+        serie_datalan = serie_datalan.bfill(axis=1).iloc[:, 0]
+
+    divergentes = ~(
+        (serie_data == serie_datalan)
+        | (serie_data.isna() & serie_datalan.isna())
+    )
+
+    if divergentes.any():
+        colunas_exemplo = [c for c in ("numdoc", "especie", "st") if c in df_para_gravar.columns]
+        colunas_exemplo.extend([coluna_data, coluna_datalan])
+        exemplo = df_para_gravar.loc[divergentes, colunas_exemplo].head(10)
+        raise RuntimeError(
+            "Foram encontrados registros com DataLan diferente de data antes da insercao em T_MOVEST.\n"
+            + exemplo.to_string(index=False)
+        )
+
+
 def calcular_delta(qtde, st):
     if pd.isna(qtde):
         return 0
@@ -291,9 +384,9 @@ def calcular_delta(qtde, st):
 
 
 def main():
-    servidor, banco_base, banco_atual, codigo_item = solicitar_parametros_conexao()
-    engine_base = get_engine(servidor, banco_base)
-    engine_atual = get_engine(servidor, banco_atual)
+    servidor, banco_base, banco_atual, username, password, codigo_item = solicitar_parametros_conexao()
+    engine_base = get_engine(servidor, banco_base, username, password)
+    engine_atual = get_engine(servidor, banco_atual, username, password)
     validar_conexao(engine_base, banco_base, "base", servidor)
     validar_conexao(engine_atual, banco_atual, "atual", servidor)
 
@@ -341,7 +434,11 @@ def main():
         codigo_item=codigo_item,
     )
 
-    colunas_ordenacao = ["data"]
+    coluna_ordenacao_base = "DataLan" if "DataLan" in df_novos.columns else "data"
+    colunas_ordenacao = [coluna_ordenacao_base]
+    if "_nrlan_origem" in df_novos.columns:
+        df_novos["_nrlan_origem"] = pd.to_numeric(df_novos["_nrlan_origem"], errors="coerce")
+        colunas_ordenacao.append("_nrlan_origem")
     if "_ordem" in df_novos.columns:
         colunas_ordenacao.append("_ordem")
     colunas_ordenacao.append("numdoc")
@@ -386,6 +483,7 @@ def main():
             df_novos = preencher_nrlan(df_novos, conn, colunas_destino)
             df_para_gravar = df_novos[[c for c in df_novos.columns if c in colunas_destino]].copy()
             df_para_gravar = normalizar_tipos_para_insert(df_para_gravar, conn)
+            validar_datalan_igual_data(df_para_gravar)
             print(f"   Inserindo {len(df_para_gravar)} registros em T_MOVEST...")
             df_para_gravar.to_sql("T_MOVEST", conn, if_exists="append", index=False, chunksize=1000)
             print("   Insercao em T_MOVEST concluida.")
