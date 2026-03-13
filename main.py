@@ -347,17 +347,33 @@ def normalizar_tipos_para_insert(df_para_gravar, conn):
     tipos = conn.execute(
         text(
             """
-            SELECT c.name AS column_name, TYPE_NAME(c.user_type_id) AS type_name
+            SELECT
+                c.name AS column_name,
+                TYPE_NAME(c.user_type_id) AS type_name,
+                c.max_length
             FROM sys.columns c
             WHERE c.object_id = OBJECT_ID('dbo.T_MOVEST')
             """
         )
     ).fetchall()
-    mapa_tipos = {r._mapping["column_name"]: r._mapping["type_name"].lower() for r in tipos}
+    mapa_tipos = {
+        r._mapping["column_name"]: {
+            "type_name": r._mapping["type_name"].lower(),
+            "max_length": r._mapping["max_length"],
+        }
+        for r in tipos
+    }
+
+    truncamentos = []
 
     tipos_int = {"int", "bigint", "smallint", "tinyint"}
+    tipos_texto = {"char", "varchar", "nchar", "nvarchar"}
     for col in list(df_para_gravar.columns):
-        tipo = mapa_tipos.get(col)
+        meta = mapa_tipos.get(col)
+        if not meta:
+            continue
+
+        tipo = meta["type_name"]
         if tipo in tipos_int:
             serie = df_para_gravar[col].astype("string").str.strip()
             serie = serie.str.replace(r"[^0-9-]", "", regex=True)
@@ -369,7 +385,35 @@ def normalizar_tipos_para_insert(df_para_gravar, conn):
             nums = pd.to_numeric(df_para_gravar[col], errors="coerce").fillna(0)
             df_para_gravar[col] = nums.apply(lambda x: 1 if int(x) != 0 else 0)
 
-    return df_para_gravar
+        if tipo in tipos_texto and meta["max_length"] not in (None, -1):
+            limite = int(meta["max_length"])
+            if tipo in {"nchar", "nvarchar"}:
+                limite = int(limite / 2)
+            if limite <= 0:
+                continue
+
+            serie = df_para_gravar[col]
+            mascara_valida = serie.notna()
+            if not mascara_valida.any():
+                continue
+
+            serie_texto = serie.astype("string")
+            comprimentos = serie_texto.str.len()
+            mascara_truncar = mascara_valida & comprimentos.gt(limite)
+            if mascara_truncar.any():
+                truncamentos.append(
+                    {
+                        "coluna": col,
+                        "limite": limite,
+                        "qtd_registros": int(mascara_truncar.sum()),
+                        "maior_tamanho_original": int(comprimentos[mascara_truncar].max()),
+                    }
+                )
+                df_para_gravar.loc[mascara_truncar, col] = serie_texto.loc[mascara_truncar].str.slice(
+                    0, limite
+                )
+
+    return df_para_gravar, truncamentos
 
 
 def validar_datalan_igual_data(df_para_gravar):
@@ -527,8 +571,17 @@ def main():
             df_novos = preparar_colunas_para_insert(df_novos, colunas_destino)
             df_novos = preencher_nrlan(df_novos, conn, colunas_destino)
             df_para_gravar = df_novos[[c for c in df_novos.columns if c in colunas_destino]].copy()
-            df_para_gravar = normalizar_tipos_para_insert(df_para_gravar, conn)
+            df_para_gravar, truncamentos_texto = normalizar_tipos_para_insert(df_para_gravar, conn)
             validar_datalan_igual_data(df_para_gravar)
+            if truncamentos_texto:
+                print("   Ajustando textos para caber no schema da T_MOVEST...")
+                for item in truncamentos_texto:
+                    print(
+                        "   "
+                        f"Coluna {item['coluna']}: {item['qtd_registros']} registro(s) truncado(s) "
+                        f"para {item['limite']} caractere(s); maior valor original com "
+                        f"{item['maior_tamanho_original']} caractere(s)."
+                    )
             print(f"   Inserindo {len(df_para_gravar)} registros em T_MOVEST...")
             df_para_gravar.to_sql("T_MOVEST", conn, if_exists="append", index=False, chunksize=1000)
             print("   Insercao em T_MOVEST concluida.")
