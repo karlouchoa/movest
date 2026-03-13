@@ -5,9 +5,29 @@ import pandas as pd
 from sqlalchemy import inspect, text
 
 
+def _partes_tabela(tabela):
+    valor = str(tabela).strip()
+    if not valor:
+        raise ValueError("O nome da tabela nao pode ficar vazio.")
+    if "." in valor:
+        schema, nome = valor.split(".", 1)
+        return schema.strip("[]"), nome.strip("[]")
+    return "dbo", valor.strip("[]")
+
+
+def _q(value):
+    return "[" + str(value).replace("]", "]]") + "]"
+
+
+def _nome_tabela_sql(tabela):
+    schema, nome = _partes_tabela(tabela)
+    return f"{_q(schema)}.{_q(nome)}"
+
+
 def _colunas_tabela(engine, tabela):
+    schema, nome = _partes_tabela(tabela)
     inspector = inspect(engine)
-    return {c["name"].lower() for c in inspector.get_columns(tabela, schema="dbo")}
+    return {c["name"].lower() for c in inspector.get_columns(nome, schema=schema)}
 
 
 def _resolver_coluna_data(colunas):
@@ -32,8 +52,8 @@ def _resolver_expr_ordem(colunas):
     return "TRY_CAST(numdoc AS BIGINT)"
 
 
-def _carregar_saldoit(engine, codigo_item=None, codigo_empresa=None):
-    sql = "SELECT cditem, cdemp, saldo FROM dbo.t_saldoit"
+def _carregar_saldoit(engine, codigo_item=None, codigo_empresa=None, tabela="t_saldoit"):
+    sql = f"SELECT cditem, cdemp, saldo FROM {_nome_tabela_sql(tabela)}"
     filtros = []
     params = {}
     if codigo_item is not None:
@@ -102,22 +122,24 @@ def _delta_movimento(qtde, st):
 
 
 def _add_discrepancia(discrepancias, tipo, cditem, esperado, encontrado, **extras):
-    discrepancias.append(
-        {
-            "tipo": tipo,
-            "cditem": cditem,
-            "cdemp": extras.get("cdemp"),
-            "data_mov": extras.get("data_mov"),
-            "numdoc": extras.get("numdoc"),
-            "seqit": extras.get("seqit"),
-            "st": extras.get("st"),
-            "qtde": extras.get("qtde"),
-            "esperado": esperado,
-            "encontrado": encontrado,
-            "diferenca": encontrado - esperado,
-            "detalhe": extras.get("detalhe"),
-        }
-    )
+    registro = {
+        "tipo": tipo,
+        "cditem": cditem,
+        "cdemp": extras.get("cdemp"),
+        "data_mov": extras.get("data_mov"),
+        "numdoc": extras.get("numdoc"),
+        "seqit": extras.get("seqit"),
+        "st": extras.get("st"),
+        "qtde": extras.get("qtde"),
+        "esperado": esperado,
+        "encontrado": encontrado,
+        "diferenca": encontrado - esperado,
+        "detalhe": extras.get("detalhe"),
+    }
+    for chave, valor in extras.items():
+        if chave not in registro:
+            registro[chave] = valor
+    discrepancias.append(registro)
 
 
 def auditar_movest(engine_base, engine_atual, data_corte, codigo_item=None, codigo_empresa=None):
@@ -243,6 +265,91 @@ def auditar_movest(engine_base, engine_atual, data_corte, codigo_item=None, codi
     return df_discrepancias, resumo
 
 
+def auditar_saldos_pos_update(
+    engine_atual,
+    tabela_backup,
+    data_corte,
+    codigo_item=None,
+    codigo_empresa=None,
+):
+    df_mov = _carregar_movest(
+        engine_atual, data_corte, codigo_item=codigo_item, codigo_empresa=codigo_empresa
+    )
+    itens_relevantes = set()
+    if not df_mov.empty:
+        itens_relevantes = {int(cditem) for cditem in df_mov["cditem"].dropna().unique().tolist()}
+    if codigo_item is not None:
+        itens_relevantes.add(int(codigo_item))
+
+    df_saldo_backup = _carregar_saldoit(
+        engine_atual,
+        codigo_item=codigo_item,
+        codigo_empresa=codigo_empresa,
+        tabela=tabela_backup,
+    )
+    df_saldo_atual = _carregar_saldoit(
+        engine_atual,
+        codigo_item=codigo_item,
+        codigo_empresa=codigo_empresa,
+        tabela="t_saldoit",
+    )
+
+    if itens_relevantes:
+        df_saldo_backup = df_saldo_backup[df_saldo_backup["cditem"].isin(itens_relevantes)].copy()
+        df_saldo_atual = df_saldo_atual[df_saldo_atual["cditem"].isin(itens_relevantes)].copy()
+    elif codigo_item is None:
+        df_saldo_backup = df_saldo_backup.iloc[0:0].copy()
+        df_saldo_atual = df_saldo_atual.iloc[0:0].copy()
+
+    saldo_backup_emp = df_saldo_backup.set_index(["cditem", "cdemp"])["saldo"].to_dict()
+    saldo_atual_emp = df_saldo_atual.set_index(["cditem", "cdemp"])["saldo"].to_dict()
+    saldo_calc_emp = {chave: float(valor) for chave, valor in saldo_backup_emp.items()}
+    pares_movimentados = set()
+
+    if not df_mov.empty:
+        for row in df_mov.to_dict("records"):
+            chave = (row["cditem"], row["cdemp"])
+            pares_movimentados.add(chave)
+            saldo_calc_emp[chave] = float(saldo_calc_emp.get(chave, 0)) + _delta_movimento(
+                float(row["qtde"]), row["st"]
+            )
+
+    pares_auditados = set(saldo_backup_emp) | set(saldo_atual_emp) | pares_movimentados
+    discrepancias = []
+
+    for cditem, cdemp in sorted(pares_auditados):
+        saldo_backup = float(saldo_backup_emp.get((cditem, cdemp), 0))
+        esperado = float(saldo_calc_emp.get((cditem, cdemp), saldo_backup))
+        encontrado = float(saldo_atual_emp.get((cditem, cdemp), 0))
+        if abs(encontrado - esperado) > 0.000001:
+            _add_discrepancia(
+                discrepancias,
+                "saldo_final_empresa_t_saldoit_backup",
+                cditem,
+                esperado,
+                encontrado,
+                cdemp=cdemp,
+                saldo_backup=saldo_backup,
+                detalhe=(
+                    "Saldo final do item/empresa em t_saldoit divergente do saldo calculado "
+                    "a partir da copia de seguranca e das movimentacoes na T_MOVEST."
+                ),
+            )
+
+    df_discrepancias = pd.DataFrame(discrepancias)
+    resumo = {
+        "data_corte": data_corte,
+        "codigo_item": codigo_item,
+        "codigo_empresa": codigo_empresa,
+        "tabela_backup": tabela_backup,
+        "qtd_movimentos_auditados": int(len(df_mov)),
+        "qtd_itens_auditados": int(len({cditem for cditem, _ in pares_auditados})),
+        "qtd_pares_item_empresa_auditados": int(len(pares_auditados)),
+        "qtd_discrepancias": int(len(df_discrepancias)),
+    }
+    return df_discrepancias, resumo
+
+
 def salvar_relatorio_auditoria(df_discrepancias, codigo_item=None, codigo_empresa=None):
     pasta_saida = Path("relatorios_gerados")
     pasta_saida.mkdir(parents=True, exist_ok=True)
@@ -271,5 +378,44 @@ def salvar_relatorio_auditoria(df_discrepancias, codigo_item=None, codigo_empres
         ).to_csv(caminho_saida, index=False, encoding="utf-8-sig")
     else:
         df_discrepancias.to_csv(caminho_saida, index=False, encoding="utf-8-sig")
+
+    return caminho_saida
+
+
+def salvar_relatorio_auditoria_saldoit(
+    df_discrepancias,
+    tabela_backup,
+    codigo_item=None,
+    codigo_empresa=None,
+):
+    pasta_saida = Path("relatorios_gerados")
+    pasta_saida.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    sufixo_item = f"_item_{codigo_item}" if codigo_item is not None else "_todos"
+    sufixo_empresa = f"_emp_{codigo_empresa}" if codigo_empresa is not None else ""
+    tabela_backup_slug = str(tabela_backup).replace(".", "_")
+    caminho_saida = (
+        pasta_saida
+        / f"auditoria_t_saldoit_{tabela_backup_slug}{sufixo_item}{sufixo_empresa}_{timestamp}.csv"
+    )
+
+    colunas = [
+        "tipo",
+        "cditem",
+        "cdemp",
+        "saldo_backup",
+        "esperado",
+        "encontrado",
+        "diferenca",
+        "detalhe",
+    ]
+    if df_discrepancias.empty:
+        pd.DataFrame(columns=colunas).to_csv(caminho_saida, index=False, encoding="utf-8-sig")
+    else:
+        colunas_saida = [col for col in colunas if col in df_discrepancias.columns]
+        df_discrepancias[colunas_saida].to_csv(
+            caminho_saida, index=False, encoding="utf-8-sig"
+        )
 
     return caminho_saida

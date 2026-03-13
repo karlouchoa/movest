@@ -8,10 +8,26 @@ from dotenv import load_dotenv
 
 from src.database import get_engine
 from src.transform import extrair_movimentacoes_novas
-from src.utils import atualizar_saldos_finais, replicar_estrutura_t_movest
+from src.utils import (
+    atualizar_saldos_finais,
+    criar_copia_seguranca_t_saldoit,
+    replicar_estrutura_t_movest,
+)
 
 
-def solicitar_parametros_conexao():
+def solicitar_confirmacao(mensagem, padrao=False):
+    sufixo = "[S/n]" if padrao else "[s/N]"
+    resposta = input(f"{mensagem} {sufixo}: ").strip().lower()
+    if not resposta:
+        return padrao
+    if resposta in {"s", "sim", "y", "yes"}:
+        return True
+    if resposta in {"n", "nao", "não", "no"}:
+        return False
+    raise ValueError("Resposta invalida. Informe S para sim ou N para nao.")
+
+
+def solicitar_parametros_conexao(perguntar_importa_ajuste_inventario=False):
     load_dotenv()
 
     servidor = os.getenv("DB_SERVER", "").strip()
@@ -41,7 +57,22 @@ def solicitar_parametros_conexao():
             raise ValueError("O codigo do item deve ser um numero inteiro maior que zero.")
         codigo_item = int(codigo_item_raw)
 
-    return servidor, banco_base, banco_atual, username, password, codigo_item
+    importa_ajuste_inventario = True
+    if perguntar_importa_ajuste_inventario:
+        importa_ajuste_inventario = solicitar_confirmacao(
+            "Deseja importar movimentacoes de Ajuste de Inventario?",
+            padrao=False,
+        )
+
+    return (
+        servidor,
+        banco_base,
+        banco_atual,
+        username,
+        password,
+        codigo_item,
+        importa_ajuste_inventario,
+    )
 
 
 def validar_conexao(engine, nome_banco, papel, servidor):
@@ -384,7 +415,15 @@ def calcular_delta(qtde, st):
 
 
 def main():
-    servidor, banco_base, banco_atual, username, password, codigo_item = solicitar_parametros_conexao()
+    (
+        servidor,
+        banco_base,
+        banco_atual,
+        username,
+        password,
+        codigo_item,
+        importa_ajuste_inventario,
+    ) = solicitar_parametros_conexao(perguntar_importa_ajuste_inventario=True)
     engine_base = get_engine(servidor, banco_base, username, password)
     engine_atual = get_engine(servidor, banco_atual, username, password)
     validar_conexao(engine_base, banco_base, "base", servidor)
@@ -415,6 +454,10 @@ def main():
         print(f"Filtro de processamento: apenas item {codigo_item}.")
     else:
         print("Filtro de processamento: todos os itens.")
+    if importa_ajuste_inventario:
+        print("Importacao de ajustes de inventario: habilitada.")
+    else:
+        print("Importacao de ajustes de inventario: desabilitada.")
 
     print("3) Carregando saldos iniciais do Bancobase.t_saldoit...")
     q_saldoit = "SELECT cditem, cdemp, saldo FROM t_saldoit"
@@ -432,6 +475,7 @@ def main():
         data_corte,
         tabela_inventario=tabela_inventario,
         codigo_item=codigo_item,
+        importar_ajuste_inventario=importa_ajuste_inventario,
     )
 
     coluna_ordenacao_base = "DataLan" if "DataLan" in df_novos.columns else "data"
@@ -468,6 +512,7 @@ def main():
     df_novos["SldAntEmp"] = saldo_ant_emp
 
     print("6) Gravando em T_MOVEST e atualizando t_saldoit...")
+    tabela_backup_saldoit = None
     with engine_atual.begin() as conn:
         if codigo_item is not None:
             qtd_excluida = excluir_movest_por_item(conn, codigo_item, data_corte)
@@ -493,6 +538,10 @@ def main():
         print("   Revisando clifor das entradas com base em t_itens.cdfor...")
         qtd_clifor_revisado = revisar_clifor_entradas(conn, codigo_item=codigo_item)
         print(f"   Registros com clifor revisado: {qtd_clifor_revisado}")
+
+        print("   Criando copia de seguranca da t_saldoit antes do update final...")
+        tabela_backup_saldoit = criar_copia_seguranca_t_saldoit(conn)
+        print(f"   Copia de seguranca criada: {tabela_backup_saldoit}")
 
         print("   Atualizando t_saldoit com base no ultimo movimento de cada item/empresa...")
         qtd_saldos_atualizados = atualizar_saldos_finais(conn, codigo_item=codigo_item)

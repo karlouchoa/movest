@@ -121,7 +121,13 @@ def _expressao_numdoc_numerico(alias):
     return f"TRY_CAST(NULLIF({numdoc_texto}, '') AS BIGINT)"
 
 
-def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codigo_item=None):
+def extrair_movimentacoes_novas(
+    engine,
+    data_corte,
+    tabela_inventario=None,
+    codigo_item=None,
+    importar_ajuste_inventario=True,
+):
     filtro_item_vendas = ""
     filtro_item_pdc = ""
     filtro_item_transf = ""
@@ -367,8 +373,10 @@ def extrair_movimentacoes_novas(engine, data_corte, tabela_inventario=None, codi
     df_v = pd.read_sql(q_vendas, engine, params=params)
     df_p = pd.read_sql(q_pdc, engine, params=params)
     df_t = pd.read_sql(q_transf, engine, params=params)
-    df_i = pd.read_sql(q_inv, engine, params=params)
     df_a = pd.read_sql(q_avulsas, engine, params=params)
+    df_i = pd.DataFrame(columns=COLUNAS_UNIFICADAS)
+    if importar_ajuste_inventario:
+        df_i = pd.read_sql(q_inv, engine, params=params)
 
     dataframes = [df for df in (df_v, df_p, df_t, df_i, df_a) if not df.empty]
     if not dataframes:

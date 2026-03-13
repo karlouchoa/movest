@@ -345,6 +345,39 @@ def atualizar_saldos_finais(conn, codigo_item=None):
     return int(resultado.rowcount or 0)
 
 
+def criar_copia_seguranca_t_saldoit(conn):
+    tabela_backup = f"T_SALDOIT_BKP_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+    conn.execute(
+        text(
+            f"""
+            SELECT *
+            INTO {_table_name(tabela_backup)}
+            FROM dbo.t_saldoit
+            """
+        )
+    )
+    return tabela_backup
+
+
+def obter_ultima_copia_seguranca_t_saldoit(conn):
+    row = conn.execute(
+        text(
+            """
+            SELECT TOP 1 t.name
+            FROM sys.tables t
+            JOIN sys.schemas s
+              ON s.schema_id = t.schema_id
+            WHERE s.name = 'dbo'
+              AND t.name LIKE 'T_SALDOIT_BKP_%'
+            ORDER BY t.create_date DESC, t.name DESC
+            """
+        )
+    ).fetchone()
+    if not row:
+        return None
+    return row._mapping["name"]
+
+
 def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"):
     if not tabela_origem:
         create_scripts, caminho_scripts = recriar_indices(tabela_destino)
