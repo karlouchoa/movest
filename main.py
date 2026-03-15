@@ -5,7 +5,12 @@ from datetime import datetime
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    def load_dotenv(*args, **kwargs):
+        return False
 
 from src.auditoria import auditar_saldos_pos_update
 from src.database import get_engine
