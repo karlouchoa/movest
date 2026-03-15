@@ -39,8 +39,9 @@ def main():
         )
     elif data_maxima_base:
         print(f"Data maxima em T_MOVEST.{coluna_data_base}: {data_maxima_base}")
-    print(f"Data de corte usada na auditoria: {data_corte}")
+    print(f"Data base valida da origem: {data_corte}")
     print("Criterio de auditoria: ultimo nrlan da T_MOVEST por cditem/cdemp/empitem.")
+    print("A auditoria final usa o estado atual da T_MOVEST e da t_saldoit, sem corte por data.")
 
     if codigo_item is not None:
         print(f"Auditoria filtrada para o item {codigo_item}.")
@@ -68,6 +69,7 @@ def main():
     print(f"Movimentos auditados: {resumo['qtd_movimentos_auditados']}")
     print(f"Itens auditados: {resumo['qtd_itens_auditados']}")
     print(f"Pares item/empresa auditados: {resumo['qtd_pares_item_empresa_auditados']}")
+    print(f"Chaves duplicadas em t_saldoit: {resumo['qtd_chaves_duplicadas_t_saldoit']}")
     print(f"Discrepancias encontradas: {resumo['qtd_discrepancias']}")
     print(f"Relatorio salvo em: {caminho_relatorio}")
 

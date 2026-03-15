@@ -405,6 +405,13 @@ def atualizar_saldos_discrepantes(conn, df_discrepancias):
     if df_discrepancias is None or df_discrepancias.empty:
         return 0
 
+    if "tipo" in df_discrepancias.columns:
+        df_discrepancias = df_discrepancias[
+            df_discrepancias["tipo"] == "saldo_t_saldoit_vs_ultimo_nrlan_cditem_cdemp_empitem"
+        ].copy()
+    if df_discrepancias.empty:
+        return 0
+
     possui_empitem = _tem_coluna(conn, "t_saldoit", "empitem")
     usa_empitem = possui_empitem and "empitem" in df_discrepancias.columns
     colunas = ["cditem", "cdemp", "esperado"]

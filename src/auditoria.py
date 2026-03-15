@@ -155,6 +155,33 @@ def _carregar_ultimo_saldo_movest(engine, codigo_item=None, codigo_empresa=None)
     return pd.read_sql(text(sql), engine, params=params)
 
 
+def _agrupar_saldoit_para_auditoria(df_saldo):
+    colunas = ["cditem", "cdemp", "empitem", "saldo"]
+    if df_saldo is None or df_saldo.empty:
+        return (
+            pd.DataFrame(columns=colunas),
+            pd.DataFrame(columns=["cditem", "cdemp", "empitem", "qtd_registros_t_saldoit", "saldo_t_saldoit_agrupado"]),
+        )
+
+    df_trabalho = df_saldo[colunas].copy()
+    df_trabalho["saldo"] = pd.to_numeric(df_trabalho["saldo"], errors="coerce").fillna(0)
+
+    df_agrupado = (
+        df_trabalho.groupby(["cditem", "cdemp", "empitem"], dropna=False, as_index=False)["saldo"]
+        .sum()
+    )
+    df_duplicidades = (
+        df_trabalho.groupby(["cditem", "cdemp", "empitem"], dropna=False)
+        .agg(
+            qtd_registros_t_saldoit=("saldo", "size"),
+            saldo_t_saldoit_agrupado=("saldo", "sum"),
+        )
+        .reset_index()
+    )
+    df_duplicidades = df_duplicidades[df_duplicidades["qtd_registros_t_saldoit"] > 1].reset_index(drop=True)
+    return df_agrupado, df_duplicidades
+
+
 def _carregar_movest(engine, data_corte, codigo_item=None, codigo_empresa=None):
     colunas = _colunas_tabela(engine, "T_MOVEST")
     coluna_data = _resolver_coluna_data(colunas)
@@ -1696,6 +1723,7 @@ def auditar_saldos_pos_update(
         codigo_empresa=codigo_empresa,
         tabela="t_saldoit",
     )
+    df_saldo_atual_agrupado, df_saldoit_duplicado = _agrupar_saldoit_para_auditoria(df_saldo_atual)
     df_ultimo_mov = _carregar_ultimo_saldo_movest(
         engine_atual,
         codigo_item=codigo_item,
@@ -1703,8 +1731,8 @@ def auditar_saldos_pos_update(
     )
 
     saldo_atual_emp = (
-        df_saldo_atual.set_index(["cditem", "cdemp", "empitem"])["saldo"].to_dict()
-        if not df_saldo_atual.empty
+        df_saldo_atual_agrupado.set_index(["cditem", "cdemp", "empitem"])["saldo"].to_dict()
+        if not df_saldo_atual_agrupado.empty
         else {}
     )
     saldo_ultimo_emp = (
@@ -1722,6 +1750,25 @@ def auditar_saldos_pos_update(
 
     pares_auditados = set(saldo_ultimo_emp) | set(saldo_atual_emp)
     discrepancias = []
+
+    if not df_saldoit_duplicado.empty:
+        for row in df_saldoit_duplicado.to_dict("records"):
+            _add_discrepancia(
+                discrepancias,
+                "chave_duplicada_t_saldoit",
+                row["cditem"],
+                1.0,
+                float(row["qtd_registros_t_saldoit"]),
+                cdemp=row["cdemp"],
+                empitem=row["empitem"],
+                saldo_t_saldoit_agrupado=float(row["saldo_t_saldoit_agrupado"]),
+                qtd_registros_t_saldoit=int(row["qtd_registros_t_saldoit"]),
+                detalhe=(
+                    "Existem multiplos registros em t_saldoit para o mesmo trio "
+                    "cditem/cdemp/empitem; a auditoria somou os saldos duplicados "
+                    "para comparar com a T_MOVEST."
+                ),
+            )
 
     for cditem, cdemp, empitem in sorted(pares_auditados):
         chave = (cditem, cdemp, empitem)
@@ -1768,6 +1815,7 @@ def auditar_saldos_pos_update(
         "qtd_movimentos_auditados": int(len(df_ultimo_mov)),
         "qtd_itens_auditados": int(len({cditem for cditem, _, _ in pares_auditados})),
         "qtd_pares_item_empresa_auditados": int(len(pares_auditados)),
+        "qtd_chaves_duplicadas_t_saldoit": int(len(df_saldoit_duplicado)),
         "qtd_discrepancias": int(len(df_discrepancias)),
     }
     return df_discrepancias, resumo
@@ -1918,6 +1966,8 @@ def salvar_relatorio_auditoria_saldoit(
         "st",
         "qtde",
         "sldantemp_ultimo",
+        "qtd_registros_t_saldoit",
+        "saldo_t_saldoit_agrupado",
         "saldo_backup",
         "esperado",
         "encontrado",
