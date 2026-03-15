@@ -24,6 +24,8 @@ COLUNAS_UNIFICADAS = [
     "SEQIT",
     "_nrlan_origem",
     "_ordem",
+    "_resultado_intencao_geral",
+    "_resultado_intencao_emp",
 ]
 
 
@@ -104,6 +106,12 @@ def _expressao_clifor_inventario(colunas, alias=None):
     return "1"
 
 
+def _expressao_empitem_inventario(colunas, alias=None):
+    if "empitem" in colunas:
+        return f"ISNULL({_coluna_tabela('empitem', alias)}, 1)"
+    return "1"
+
+
 def _expressao_ordem_inventario(colunas, alias=None):
     if "nrlan" in colunas:
         return f"TRY_CAST({_coluna_tabela('nrlan', alias)} AS BIGINT)"
@@ -114,6 +122,22 @@ def _expressao_nrlan_inventario(colunas, alias=None):
     if "nrlan" in colunas:
         return f"TRY_CAST({_coluna_tabela('nrlan', alias)} AS BIGINT)"
     return "CAST(NULL AS BIGINT)"
+
+
+def _expressao_resultado_intencao_movimento(colunas, campo_saldo, alias=None):
+    if campo_saldo.lower() not in colunas or "qtde" not in colunas or "st" not in colunas:
+        return "CAST(NULL AS DECIMAL(18, 4))"
+
+    saldo_expr = f"CAST(ISNULL({_coluna_tabela(campo_saldo, alias)}, 0) AS DECIMAL(18, 4))"
+    qtde_expr = f"CAST(ISNULL({_coluna_tabela('qtde', alias)}, 0) AS DECIMAL(18, 4))"
+    st_expr = _coluna_tabela("st", alias)
+    return (
+        "CAST(("
+        f"CASE WHEN {st_expr} = 'E' THEN {saldo_expr} + {qtde_expr} "
+        f"WHEN {st_expr} = 'S' THEN {saldo_expr} - {qtde_expr} "
+        f"ELSE {saldo_expr} END"
+        ") AS DECIMAL(18, 4))"
+    )
 
 
 def _expressao_numdoc_numerico(alias):
@@ -190,7 +214,9 @@ def extrair_movimentacoes_novas(
            CAST(ISNULL(iv.precpra_iv, 0) AS DECIMAL(18, 4)) as Preco,
            CAST(ISNULL(iv.precpra_iv, 0) * ISNULL(iv.qtdeSol_iv, 0) AS DECIMAL(18, 4)) as valor,
            iv.registro as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
-           (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) + 1 as _ordem
+           (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) + 1 as _ordem,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_geral,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_emp
     FROM itens_venda iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
@@ -208,7 +234,9 @@ def extrair_movimentacoes_novas(
            CAST(ISNULL(iv.precpra_iv, 0) AS DECIMAL(18, 4)) as Preco,
            CAST(ISNULL(iv.precpra_iv, 0) * ISNULL(iv.qtdeSol_iv, 0) AS DECIMAL(18, 4)) as valor,
            iv.registro as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
-           (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) as _ordem
+           (COALESCE(TRY_CAST(v.nrven_v AS BIGINT), 0) * 10) as _ordem,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_geral,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_emp
     FROM itens_venda iv
     JOIN T_VENDAS v ON iv.nrven_iv = v.nrven_v
     WHERE v.emisven_v >= :data_corte
@@ -236,13 +264,15 @@ def extrair_movimentacoes_novas(
            p.empent as cdemp, it.cditem as cditem, it.QtSol as qtde,
            CASE WHEN p.StaReq = 'E' THEN 'C' ELSE 'D' END as especie,
            'E' as st,
-           ISNULL(p.CodFor, 1) as clifor, 1 as empfor, 1 as empitem,
+           ISNULL(p.CodFor, 1) as clifor, 1 as empfor, ISNULL(it.empitem, 1) as empitem,
            p.obscmp as obs, CAST(p.obscmp AS VARCHAR(255)) as obsit, p.UsuSta as codusu,
            CAST(p.HOSTNAME AS VARCHAR(50)) as ip, p.cdemp as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
            it.Registro as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
-           COALESCE(TRY_CAST(p.NrReq AS BIGINT), 0) as _ordem
+           COALESCE(TRY_CAST(p.NrReq AS BIGINT), 0) as _ordem,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_geral,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_emp
     FROM T_ITPDC it
     JOIN T_PDC p ON it.Nrreq = p.NrReq
     WHERE p.DtSta >= :data_corte AND p.StaReq IN ('E', 'A')
@@ -257,13 +287,15 @@ def extrair_movimentacoes_novas(
            t.datahorarec as DataLan,
            t.cdempsaida as cdemp, it.cditem as cditem, it.qtditem as qtde,
            'F' as especie, 'S' as st,
-           1 as clifor, 1 as empfor, 1 as empitem,
+           1 as clifor, 1 as empfor, ISNULL(it.empitem, 1) as empitem,
            t.observacao as obs, CAST(t.observacao AS VARCHAR(255)) as obsit, t.codusu_transf as codusu,
            CAST(t.codusu_rec AS VARCHAR(50)) as ip, t.cdempsaida as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
            it.cditemtransf as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
-           COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem
+           COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_geral,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_emp
     FROM T_ITTRANSF it
     JOIN T_TRANSF t ON it.cdtransf = t.codtransf
     WHERE t.datahorarec >= :data_corte AND t.statustransf = 'E'
@@ -276,13 +308,15 @@ def extrair_movimentacoes_novas(
            t.datahorarec as DataLan,
            t.cdempentrada as cdemp, it.cditem as cditem, it.qtditem as qtde,
            'F' as especie, 'E' as st,
-           1 as clifor, 1 as empfor, 1 as empitem,
+           1 as clifor, 1 as empfor, ISNULL(it.empitem, 1) as empitem,
            t.observacao as obs, CAST(t.observacao AS VARCHAR(255)) as obsit, t.codusu_transf as codusu,
            CAST(t.codusu_rec AS VARCHAR(50)) as ip, t.cdempsaida as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
            it.cditemtransf as SEQIT, CAST(NULL AS BIGINT) as _nrlan_origem,
-           COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem
+           COALESCE(TRY_CAST(t.codtransf AS BIGINT), 0) as _ordem,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_geral,
+           CAST(NULL AS DECIMAL(18, 4)) as _resultado_intencao_emp
     FROM T_ITTRANSF it
     JOIN T_TRANSF t ON it.cdtransf = t.codtransf
     WHERE t.datahorarec >= :data_corte AND t.statustransf = 'E'
@@ -305,20 +339,36 @@ def extrair_movimentacoes_novas(
     seqit_expr_inv_m = _expressao_seqit_inventario(colunas_inv, alias="m")
     nrlan_expr_inv_m = _expressao_nrlan_inventario(colunas_inv, alias="m")
     clifor_expr_inv_m = _expressao_clifor_inventario(colunas_inv, alias="m")
+    empitem_expr_inv = _expressao_empitem_inventario(colunas_inv)
+    empitem_expr_inv_m = _expressao_empitem_inventario(colunas_inv, alias="m")
     ordem_expr_inv_m = _expressao_ordem_inventario(colunas_inv, alias="m")
     numdoc_numerico_inv_m = _expressao_numdoc_numerico(alias="m")
+    resultado_intencao_geral_inv = _expressao_resultado_intencao_movimento(
+        colunas_inv, "saldoant"
+    )
+    resultado_intencao_emp_inv = _expressao_resultado_intencao_movimento(
+        colunas_inv, "SldAntEmp"
+    )
+    resultado_intencao_geral_avulsa = _expressao_resultado_intencao_movimento(
+        colunas_inv, "saldoant", alias="m"
+    )
+    resultado_intencao_emp_avulsa = _expressao_resultado_intencao_movimento(
+        colunas_inv, "SldAntEmp", alias="m"
+    )
 
     q_inv = text(
         f"""
     SELECT numdoc, {data_expr_inv} as data, {datadoc_expr_inv} as datadoc, {data_expr_inv} as DataLan,
            cdemp, cditem, qtde, 'I' as especie, st,
-           1 as clifor, 1 as empfor, 1 as empitem,
+           1 as clifor, 1 as empfor, {empitem_expr_inv} as empitem,
            obs, CAST(obs AS VARCHAR(255)) as obsit, codusu,
            {ip_expr_inv} as ip, cdemp as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
            {seqit_expr_inv} as SEQIT, {nrlan_expr_inv} as _nrlan_origem,
-           {ordem_expr_inv} as _ordem
+           {ordem_expr_inv} as _ordem,
+           {resultado_intencao_geral_inv} as _resultado_intencao_geral,
+           {resultado_intencao_emp_inv} as _resultado_intencao_emp
     FROM dbo.{tabela_inv}
     WHERE especie = 'I' AND {datalan_expr_inv} >= :data_corte
       {filtro_item_inv}
@@ -329,13 +379,15 @@ def extrair_movimentacoes_novas(
         f"""
     SELECT m.numdoc, {data_expr_inv_m} as data, {datadoc_expr_inv_m} as datadoc, {data_expr_inv_m} as DataLan,
            m.cdemp, m.cditem, m.qtde, m.especie, m.st,
-           {clifor_expr_inv_m} as clifor, 1 as empfor, 1 as empitem,
+           {clifor_expr_inv_m} as clifor, 1 as empfor, {empitem_expr_inv_m} as empitem,
            m.obs, CAST(m.obs AS VARCHAR(255)) as obsit, m.codusu,
            {ip_expr_inv_m} as ip, m.cdemp as empven,
            CAST(0 AS DECIMAL(18, 4)) as Preco,
            CAST(0 AS DECIMAL(18, 4)) as valor,
            {seqit_expr_inv_m} as SEQIT, {nrlan_expr_inv_m} as _nrlan_origem,
-           {ordem_expr_inv_m} as _ordem
+           {ordem_expr_inv_m} as _ordem,
+           {resultado_intencao_geral_avulsa} as _resultado_intencao_geral,
+           {resultado_intencao_emp_avulsa} as _resultado_intencao_emp
     FROM dbo.{tabela_inv} m
     WHERE {datalan_expr_inv_m} >= :data_corte
       {"AND m.cditem = :codigo_item" if codigo_item is not None else ""}
@@ -363,6 +415,16 @@ def extrair_movimentacoes_novas(
                   FROM T_VENDAS v
                   WHERE TRY_CAST(v.nrven_v AS BIGINT) = {numdoc_numerico_inv_m}
                     AND ISNULL(v.TrocReq, 'N') = 'S'
+              )
+          )
+          OR (
+              m.st = 'E'
+              AND m.especie = 'V'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM T_VENDAS v
+                  WHERE TRY_CAST(v.nrven_v AS BIGINT) = {numdoc_numerico_inv_m}
+                    AND v.emisven_v >= :data_corte
               )
           )
           OR (m.st = 'E' AND m.especie = 'O')

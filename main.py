@@ -1,16 +1,20 @@
-from datetime import datetime
 import os
+import subprocess
+from datetime import datetime
 
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 
+from src.auditoria import auditar_saldos_pos_update
 from src.database import get_engine
 from src.transform import extrair_movimentacoes_novas
 from src.utils import (
+    atualizar_saldos_discrepantes,
     atualizar_saldos_finais,
     criar_copia_seguranca_t_saldoit,
+    limpar_residuos_movest,
     replicar_estrutura_t_movest,
 )
 
@@ -61,7 +65,7 @@ def solicitar_parametros_conexao(perguntar_importa_ajuste_inventario=False):
     if perguntar_importa_ajuste_inventario:
         importa_ajuste_inventario = solicitar_confirmacao(
             "Deseja importar movimentacoes de Ajuste de Inventario?",
-            padrao=False,
+            padrao=True,
         )
 
     return (
@@ -81,9 +85,66 @@ def validar_conexao(engine, nome_banco, papel, servidor):
             conn.execute(text("SELECT 1"))
     except SQLAlchemyError as exc:
         raise RuntimeError(
-            f"Nao foi possivel conectar ao banco {papel} '{nome_banco}' no servidor '{servidor}'. "
-            "Verifique o nome da instancia, o nome do banco, a permissao do usuario e se o SQL Server aceita conexoes."
+            montar_mensagem_erro_conexao(exc, nome_banco, papel, servidor)
         ) from exc
+
+
+def listar_instancias_sql_local():
+    if os.name != "nt":
+        return []
+
+    try:
+        resultado = subprocess.run(
+            ["sc", "query", "type=", "service", "state=", "all"],
+            capture_output=True,
+            text=True,
+            encoding="cp1252",
+            errors="ignore",
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+
+    instancias = []
+    for linha in resultado.stdout.splitlines():
+        linha = linha.strip()
+        if not linha.startswith("SERVICE_NAME:"):
+            continue
+
+        nome_servico = linha.split(":", 1)[1].strip()
+        if nome_servico == "MSSQLSERVER":
+            instancias.append("localhost")
+        elif nome_servico.startswith("MSSQL$"):
+            instancias.append(f"localhost\\{nome_servico.split('$', 1)[1]}")
+
+    return sorted(set(instancias))
+
+
+def montar_mensagem_erro_conexao(exc, nome_banco, papel, servidor):
+    mensagem = (
+        f"Nao foi possivel conectar ao banco {papel} '{nome_banco}' no servidor '{servidor}'.\n"
+        "Verifique se o SQL Server esta ligado, se o nome da instancia esta correto, "
+        "se o banco existe e se o usuario informado tem permissao.\n"
+        "Exemplos de servidor validos: localhost, localhost\\SQLEXPRESS, SERVIDOR\\INSTANCIA, 127.0.0.1,1433."
+    )
+
+    servidor_normalizado = servidor.strip().lower()
+    if servidor_normalizado in {"localhost", ".", "(local)", "127.0.0.1"}:
+        instancias = listar_instancias_sql_local()
+        if instancias:
+            mensagem += "\nInstancias locais detectadas nesta maquina: " + ", ".join(instancias) + "."
+        else:
+            mensagem += (
+                "\nNenhuma instancia local de SQL Server foi detectada automaticamente. "
+                "Se voce usa uma instancia nomeada, informe no formato localhost\\NOME_DA_INSTANCIA."
+            )
+
+    detalhes = str(exc).strip()
+    if detalhes:
+        mensagem += f"\nDetalhe tecnico: {detalhes}"
+
+    return mensagem
 
 
 def preparar_t_movest_destino(engine_base, engine_atual, codigo_item=None):
@@ -101,7 +162,6 @@ def preparar_t_movest_destino(engine_base, engine_atual, codigo_item=None):
                 """
             )
         ).scalar()
-
     if not base_db:
         raise RuntimeError("Nao foi possivel identificar o nome do banco base conectado.")
     if not existe_origem:
@@ -140,22 +200,34 @@ def preparar_t_movest_destino(engine_base, engine_atual, codigo_item=None):
 
 def obter_data_corte_base(engine_base):
     with engine_base.connect() as conn:
-        if conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'datadoc')")).scalar():
-            coluna_data_base = "datadoc"
+        if conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'data')")).scalar():
+            coluna_data_base = "[data]"
         elif conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'DataLan')")).scalar():
             coluna_data_base = "DataLan"
-        elif conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'data')")).scalar():
-            coluna_data_base = "[data]"
+        elif conn.execute(text("SELECT COL_LENGTH('dbo.T_MOVEST', 'datadoc')")).scalar():
+            coluna_data_base = "datadoc"
         else:
-            raise RuntimeError("A dbo.T_MOVEST nao possui DATADOC, DataLan ou data para definir a data base.")
+            raise RuntimeError("A dbo.T_MOVEST nao possui data, DATADOC ou DataLan para definir a data base.")
 
         data_maxima_original = conn.execute(
             text(f"SELECT MAX({coluna_data_base}) FROM T_MOVEST")
         ).scalar()
-        data_maxima_valida = conn.execute(
-            text(f"SELECT MAX({coluna_data_base}) FROM T_MOVEST WHERE {coluna_data_base} <= GETDATE()")
-        ).scalar()
-    return (data_maxima_valida or datetime(1900, 1, 1)), data_maxima_original, coluna_data_base
+        data_limite = datetime.now()
+        data_candidata = data_maxima_original
+
+        while data_candidata and data_candidata > data_limite:
+            data_candidata = conn.execute(
+                text(
+                    f"""
+                    SELECT MAX({coluna_data_base})
+                    FROM T_MOVEST
+                    WHERE {coluna_data_base} < :data_anterior
+                    """
+                ),
+                {"data_anterior": data_candidata},
+            ).scalar()
+
+    return (data_candidata or datetime(1900, 1, 1)), data_maxima_original, coluna_data_base
 
 
 def excluir_movest_por_item(conn, codigo_item, data_corte):
@@ -458,6 +530,113 @@ def calcular_delta(qtde, st):
     return 0
 
 
+def valor_numerico(value):
+    numero = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(numero):
+        return None
+    return float(numero)
+
+
+def delta_compativel_com_st(delta, st, tolerancia=0.000001):
+    st_upper = str(st).upper().strip()
+    if st_upper == "E":
+        return delta >= -tolerancia
+    if st_upper == "S":
+        return delta <= tolerancia
+    return False
+
+
+def recalcular_qtde_movimento_preservando_resultado(
+    row,
+    saldo_item_atual,
+    saldo_item_emp_atual,
+    tolerancia=0.000001,
+):
+    st_original = str(row.get("st", "")).upper().strip()
+    qtde_original = valor_numerico(row.get("qtde")) or 0
+
+    alvo_final_geral = valor_numerico(row.get("_resultado_intencao_geral"))
+    alvo_final_emp = valor_numerico(row.get("_resultado_intencao_emp"))
+
+    if (
+        st_original not in {"E", "S"}
+        or (alvo_final_geral is None and alvo_final_emp is None)
+    ):
+        return qtde_original, st_original, None
+
+    delta_geral = None if alvo_final_geral is None else float(alvo_final_geral) - float(saldo_item_atual)
+    delta_emp = None if alvo_final_emp is None else float(alvo_final_emp) - float(saldo_item_emp_atual)
+
+    divergencia_alvos = (
+        delta_geral is not None
+        and delta_emp is not None
+        and abs(delta_geral - delta_emp) > tolerancia
+    )
+
+    delta_escolhido = None
+    origem_alvo = None
+
+    if delta_emp is not None and delta_compativel_com_st(
+        delta_emp, st_original, tolerancia=tolerancia
+    ):
+        delta_escolhido = delta_emp
+        origem_alvo = "sldantemp"
+    elif delta_geral is not None and delta_compativel_com_st(
+        delta_geral, st_original, tolerancia=tolerancia
+    ):
+        delta_escolhido = delta_geral
+        origem_alvo = "saldoant"
+    elif delta_emp is not None:
+        delta_escolhido = delta_emp
+        origem_alvo = "sldantemp"
+    elif delta_geral is not None:
+        delta_escolhido = delta_geral
+        origem_alvo = "saldoant"
+
+    if delta_escolhido is None:
+        return qtde_original, st_original, {
+            "status": "incompativel",
+            "qtde_original": qtde_original,
+            "alvo_final_geral": alvo_final_geral,
+            "alvo_final_emp": alvo_final_emp,
+            "delta_geral": delta_geral,
+            "delta_emp": delta_emp,
+            "divergencia_alvos": divergencia_alvos,
+        }
+
+    if abs(delta_escolhido) <= tolerancia:
+        novo_st = st_original
+        nova_qtde = 0.0
+    else:
+        novo_st = "E" if delta_escolhido > 0 else "S"
+        nova_qtde = abs(float(delta_escolhido))
+
+    st_alterado = novo_st != st_original
+    qtde_alterada = abs(nova_qtde - qtde_original) > tolerancia
+    if st_alterado and qtde_alterada:
+        status = "recalculado_com_troca_st"
+    elif st_alterado:
+        status = "troca_st"
+    elif qtde_alterada:
+        status = "recalculado"
+    else:
+        status = "inalterado"
+
+    return nova_qtde, novo_st, {
+        "status": status,
+        "qtde_original": qtde_original,
+        "qtde_nova": nova_qtde,
+        "st_original": st_original,
+        "st_novo": novo_st,
+        "alvo_final_geral": alvo_final_geral,
+        "alvo_final_emp": alvo_final_emp,
+        "delta_geral": delta_geral,
+        "delta_emp": delta_emp,
+        "origem_alvo": origem_alvo,
+        "divergencia_alvos": divergencia_alvos,
+    }
+
+
 def main():
     (
         servidor,
@@ -539,21 +718,160 @@ def main():
     print("5) Calculando saldoant e SldAntEmp...")
     saldo_ant_geral = []
     saldo_ant_emp = []
+    qtde_recalculada = []
+    st_recalculado = []
+    qtd_avulsas_identificadas = 0
+    qtd_avulsas_recalculadas = 0
+    qtd_avulsas_inalteradas = 0
+    qtd_avulsas_incompativeis = 0
+    qtd_avulsas_divergentes = 0
+    qtd_avulsas_st_corrigido = 0
+    qtd_inventarios_identificados = 0
+    qtd_inventarios_recalculados = 0
+    qtd_inventarios_inalterados = 0
+    qtd_inventarios_incompativeis = 0
+    qtd_inventarios_divergentes = 0
+    qtd_inventarios_st_corrigido = 0
+    exemplos_incompativeis = []
+    exemplos_avulsos_incompativeis = []
 
     for _, row in df_novos.iterrows():
         cditem, cdemp = row["cditem"], row["cdemp"]
         saldo_item = dict_geral.get(cditem, 0)
         saldo_item_emp = dict_emp.get((cditem, cdemp), 0)
 
+        qtde_mov = row["qtde"]
+        st_mov = row["st"]
+        especie_mov = str(row.get("especie", "")).upper().strip()
+        info_recalculo = None
+        if especie_mov == "I":
+            qtd_inventarios_identificados += 1
+            qtde_mov, st_mov, info_recalculo = recalcular_qtde_movimento_preservando_resultado(
+                row,
+                saldo_item,
+                saldo_item_emp,
+            )
+            if info_recalculo:
+                if info_recalculo.get("divergencia_alvos"):
+                    qtd_inventarios_divergentes += 1
+                if info_recalculo.get("status") in {"recalculado", "recalculado_com_troca_st"}:
+                    qtd_inventarios_recalculados += 1
+                if info_recalculo.get("status") in {"troca_st", "recalculado_com_troca_st"}:
+                    qtd_inventarios_st_corrigido += 1
+                elif info_recalculo.get("status") == "inalterado":
+                    qtd_inventarios_inalterados += 1
+                elif info_recalculo.get("status") == "incompativel":
+                    qtd_inventarios_incompativeis += 1
+                    if len(exemplos_incompativeis) < 10:
+                        exemplos_incompativeis.append(
+                            {
+                                "data": row.get("DataLan", row.get("data")),
+                                "numdoc": row.get("numdoc"),
+                                "cdemp": cdemp,
+                                "cditem": cditem,
+                                "st": row.get("st"),
+                                "qtde_original": info_recalculo.get("qtde_original"),
+                                "delta_geral": info_recalculo.get("delta_geral"),
+                                "delta_emp": info_recalculo.get("delta_emp"),
+                            }
+                        )
+        elif (
+            valor_numerico(row.get("_resultado_intencao_geral")) is not None
+            or valor_numerico(row.get("_resultado_intencao_emp")) is not None
+        ):
+            qtd_avulsas_identificadas += 1
+            qtde_mov, st_mov, info_recalculo = recalcular_qtde_movimento_preservando_resultado(
+                row,
+                saldo_item,
+                saldo_item_emp,
+            )
+            if info_recalculo:
+                if info_recalculo.get("divergencia_alvos"):
+                    qtd_avulsas_divergentes += 1
+                if info_recalculo.get("status") in {"recalculado", "recalculado_com_troca_st"}:
+                    qtd_avulsas_recalculadas += 1
+                if info_recalculo.get("status") in {"troca_st", "recalculado_com_troca_st"}:
+                    qtd_avulsas_st_corrigido += 1
+                elif info_recalculo.get("status") == "inalterado":
+                    qtd_avulsas_inalteradas += 1
+                elif info_recalculo.get("status") == "incompativel":
+                    qtd_avulsas_incompativeis += 1
+                    if len(exemplos_avulsos_incompativeis) < 10:
+                        exemplos_avulsos_incompativeis.append(
+                            {
+                                "data": row.get("DataLan", row.get("data")),
+                                "numdoc": row.get("numdoc"),
+                                "cdemp": cdemp,
+                                "cditem": cditem,
+                                "especie": especie_mov,
+                                "st": row.get("st"),
+                                "qtde_original": info_recalculo.get("qtde_original"),
+                                "delta_geral": info_recalculo.get("delta_geral"),
+                                "delta_emp": info_recalculo.get("delta_emp"),
+                            }
+                        )
+
         saldo_ant_geral.append(saldo_item)
         saldo_ant_emp.append(saldo_item_emp)
+        qtde_recalculada.append(qtde_mov)
+        st_recalculado.append(st_mov)
 
-        delta = calcular_delta(row["qtde"], row["st"])
+        delta = calcular_delta(qtde_mov, st_mov)
 
         dict_geral[cditem] = saldo_item + delta
         dict_emp[(cditem, cdemp)] = saldo_item_emp + delta
+
+    df_novos["qtde"] = qtde_recalculada
+    df_novos["st"] = st_recalculado
     df_novos["saldoant"] = saldo_ant_geral
     df_novos["SldAntEmp"] = saldo_ant_emp
+    itens_reconstruidos = []
+    if not df_novos.empty:
+        itens_reconstruidos = sorted(
+            {int(cditem) for cditem in df_novos["cditem"].dropna().tolist()}
+        )
+    elif codigo_item is not None:
+        itens_reconstruidos = [int(codigo_item)]
+    if qtd_inventarios_identificados:
+        print(
+            "   Inventarios identificados: "
+            f"{qtd_inventarios_identificados} | "
+            f"recalculados: {qtd_inventarios_recalculados} | "
+            f"st corrigido: {qtd_inventarios_st_corrigido} | "
+            f"inalterados: {qtd_inventarios_inalterados} | "
+            f"incompativeis: {qtd_inventarios_incompativeis} | "
+            f"divergencia entre saldoant e sldantemp: {qtd_inventarios_divergentes}"
+        )
+        if exemplos_incompativeis:
+            print("   Exemplos de inventarios incompativeis com o sentido original do ajuste:")
+            for exemplo in exemplos_incompativeis:
+                print(
+                    "   "
+                    f"data={exemplo['data']} numdoc={exemplo['numdoc']} cdemp={exemplo['cdemp']} "
+                    f"cditem={exemplo['cditem']} st={exemplo['st']} "
+                    f"qtde_original={exemplo['qtde_original']} "
+                    f"delta_geral={exemplo['delta_geral']} delta_emp={exemplo['delta_emp']}"
+                )
+    if qtd_avulsas_identificadas:
+        print(
+            "   Avulsas com resultado intencional identificado: "
+            f"{qtd_avulsas_identificadas} | "
+            f"recalculadas: {qtd_avulsas_recalculadas} | "
+            f"st corrigido: {qtd_avulsas_st_corrigido} | "
+            f"inalteradas: {qtd_avulsas_inalteradas} | "
+            f"incompativeis: {qtd_avulsas_incompativeis} | "
+            f"divergencia entre saldoant e sldantemp: {qtd_avulsas_divergentes}"
+        )
+        if exemplos_avulsos_incompativeis:
+            print("   Exemplos de avulsas incompativeis com o sentido original do ajuste:")
+            for exemplo in exemplos_avulsos_incompativeis:
+                print(
+                    "   "
+                    f"data={exemplo['data']} numdoc={exemplo['numdoc']} cdemp={exemplo['cdemp']} "
+                    f"cditem={exemplo['cditem']} especie={exemplo['especie']} st={exemplo['st']} "
+                    f"qtde_original={exemplo['qtde_original']} "
+                    f"delta_geral={exemplo['delta_geral']} delta_emp={exemplo['delta_emp']}"
+                )
 
     print("6) Gravando em T_MOVEST e atualizando t_saldoit...")
     tabela_backup_saldoit = None
@@ -588,6 +906,15 @@ def main():
         else:
             print("   Nenhuma movimentacao encontrada para reinserir.")
 
+        print("   Limpando residuos da T_MOVEST sem item ou empresa validos...")
+        limpeza_movest = limpar_residuos_movest(conn, codigo_item=codigo_item)
+        print(
+            "   "
+            f"Registros excluidos: {limpeza_movest['qtd_excluidos']} | "
+            f"cditem sem cadastro em t_itens: {limpeza_movest['qtd_cditem_invalido']} | "
+            f"cdemp sem cadastro em t_emp: {limpeza_movest['qtd_cdemp_invalido']}"
+        )
+
         print("   Revisando clifor das entradas com base em t_itens.cdfor...")
         qtd_clifor_revisado = revisar_clifor_entradas(conn, codigo_item=codigo_item)
         print(f"   Registros com clifor revisado: {qtd_clifor_revisado}")
@@ -597,7 +924,11 @@ def main():
         print(f"   Copia de seguranca criada: {tabela_backup_saldoit}")
 
         print("   Atualizando t_saldoit com base no ultimo movimento de cada item/empresa...")
-        qtd_saldos_atualizados = atualizar_saldos_finais(conn, codigo_item=codigo_item)
+        qtd_saldos_atualizados = atualizar_saldos_finais(
+            conn,
+            codigo_item=codigo_item,
+            itens=itens_reconstruidos if codigo_item is not None else None,
+        )
         print(f"   Registros atualizados em t_saldoit: {qtd_saldos_atualizados}")
 
     if codigo_item is None:
@@ -606,6 +937,43 @@ def main():
         print(f"Script SQL salvo em: {caminho_script}")
     else:
         print("7) Processamento por item concluido sem recriacao de objetos da tabela.")
+
+    print("8) Validando discrepancias entre t_saldoit e o ultimo registro da T_MOVEST...")
+    df_discrepancias_saldo, resumo_saldo = auditar_saldos_pos_update(
+        engine_atual,
+        data_corte,
+        codigo_item=None,
+        codigo_empresa=None,
+    )
+    qtd_itens_discrepantes = 0
+    if not df_discrepancias_saldo.empty:
+        qtd_itens_discrepantes = int(df_discrepancias_saldo["cditem"].dropna().nunique())
+    print(
+        "   "
+        f"Itens discrepantes: {qtd_itens_discrepantes} | "
+        f"pares cditem/cdemp/empitem discrepantes: {resumo_saldo['qtd_discrepancias']}"
+    )
+
+    if not df_discrepancias_saldo.empty:
+        deseja_atualizar_discrepantes = solicitar_confirmacao(
+            "Deseja atualizar a t_saldoit para os itens discrepantes identificados?",
+            padrao=False,
+        )
+        if deseja_atualizar_discrepantes:
+            with engine_atual.begin() as conn:
+                qtd_corrigidos = atualizar_saldos_discrepantes(conn, df_discrepancias_saldo)
+            print(f"   Registros ajustados na t_saldoit a partir das discrepancias: {qtd_corrigidos}")
+
+            df_discrepancias_saldo, resumo_saldo = auditar_saldos_pos_update(
+                engine_atual,
+                data_corte,
+                codigo_item=None,
+                codigo_empresa=None,
+            )
+            print(
+                "   "
+                f"Discrepancias restantes apos ajuste opcional: {resumo_saldo['qtd_discrepancias']}"
+            )
 
     print("Concluido com sucesso.")
 

@@ -2,11 +2,16 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
 from sqlalchemy import text
 
 
 def _q(name):
     return "[" + str(name).replace("]", "]]") + "]"
+
+
+def _normalizar_nome_coluna(name):
+    return str(name).strip().lower()
 
 
 def _table_name(name):
@@ -157,7 +162,7 @@ def _colunas_tabela(conn, tabela):
         ),
         {"table_name": f"dbo.{tabela}"},
     ).fetchall()
-    return {row._mapping["name"] for row in rows}
+    return {_normalizar_nome_coluna(row._mapping["name"]) for row in rows}
 
 
 def _metadados_colunas_tabela(conn, tabela):
@@ -201,7 +206,7 @@ def _metadados_colunas_tabela(conn, tabela):
         ),
         {"table_name": f"dbo.{tabela}"},
     ).fetchall()
-    return {row._mapping["name"]: dict(row._mapping) for row in rows}
+    return {_normalizar_nome_coluna(row._mapping["name"]): dict(row._mapping) for row in rows}
 
 
 def _formatar_numero_sql(valor):
@@ -288,8 +293,38 @@ def _montar_sql_add_coluna(meta, tabela_destino, nome_constraint_default=None, d
     return " ".join(partes)
 
 
-def atualizar_saldos_finais(conn, codigo_item=None):
-    coluna_data = "[DataLan]" if _tem_coluna(conn, "T_MOVEST", "DataLan") else "[data]"
+def _montar_filtro_itens(prefixo_coluna, codigo_item=None, itens=None):
+    filtros = []
+    params = {}
+
+    if codigo_item is not None:
+        filtros.append(f"{prefixo_coluna}.cditem = :codigo_item")
+        params["codigo_item"] = codigo_item
+        return filtros, params
+
+    itens_normalizados = []
+    if itens:
+        vistos = set()
+        for item in itens:
+            if item is None:
+                continue
+            item_int = int(item)
+            if item_int not in vistos:
+                vistos.add(item_int)
+                itens_normalizados.append(item_int)
+
+    if itens_normalizados:
+        placeholders = []
+        for indice, item in enumerate(itens_normalizados):
+            chave = f"item_{indice}"
+            placeholders.append(f":{chave}")
+            params[chave] = item
+        filtros.append(f"{prefixo_coluna}.cditem IN ({', '.join(placeholders)})")
+
+    return filtros, params
+
+
+def atualizar_saldos_finais(conn, codigo_item=None, itens=None):
     coluna_nrlan = "TRY_CAST([nrlan] AS BIGINT)" if _tem_coluna(conn, "T_MOVEST", "nrlan") else "0"
     if _tem_coluna(conn, "T_MOVEST", "SEQIT"):
         coluna_seqit = "TRY_CAST([SEQIT] AS BIGINT)"
@@ -298,16 +333,32 @@ def atualizar_saldos_finais(conn, codigo_item=None):
     else:
         coluna_seqit = "0"
     coluna_numdoc = "TRY_CAST([numdoc] AS BIGINT)" if _tem_coluna(conn, "T_MOVEST", "numdoc") else "0"
+    if _tem_coluna(conn, "T_MOVEST", "DataLan"):
+        coluna_data = "[DataLan]"
+    elif _tem_coluna(conn, "T_MOVEST", "data"):
+        coluna_data = "[data]"
+    else:
+        coluna_data = "CAST(NULL AS DATETIME)"
     expr_empitem_movest = "[empitem]" if _tem_coluna(conn, "T_MOVEST", "empitem") else "1"
     expr_empitem_saldoit = "s.[empitem]" if _tem_coluna(conn, "t_saldoit", "empitem") else "1"
 
-    filtro_movest = ""
-    filtro_saldoit = ""
-    params = {}
-    if codigo_item is not None:
-        filtro_movest = "WHERE m.cditem = :codigo_item"
-        filtro_saldoit = "WHERE s.cditem = :codigo_item"
-        params["codigo_item"] = codigo_item
+    filtros_movest, params = _montar_filtro_itens("m", codigo_item=codigo_item, itens=itens)
+    filtros_saldoit, params_saldoit = _montar_filtro_itens("s", codigo_item=codigo_item, itens=itens)
+    params.update(params_saldoit)
+
+    filtro_movest = f"WHERE {' AND '.join(filtros_movest)}" if filtros_movest else ""
+    filtro_saldoit = f"WHERE {' AND '.join(filtros_saldoit)}" if filtros_saldoit else ""
+
+    qtd_alvos = conn.execute(
+        text(
+            f"""
+            SELECT COUNT(*)
+            FROM dbo.t_saldoit s
+            {filtro_saldoit}
+            """
+        ),
+        params,
+    ).scalar() or 0
 
     resultado = conn.execute(
         text(
@@ -324,15 +375,18 @@ def atualizar_saldos_finais(conn, codigo_item=None):
                     END AS saldo_final,
                     ROW_NUMBER() OVER (
                         PARTITION BY m.cditem, m.cdemp, {expr_empitem_movest}
-                        ORDER BY {coluna_data} DESC, {coluna_nrlan} DESC, {coluna_seqit} DESC, {coluna_numdoc} DESC
+                        ORDER BY {coluna_nrlan} DESC, {coluna_data} DESC, {coluna_seqit} DESC, {coluna_numdoc} DESC
                     ) AS rn
                 FROM dbo.T_MOVEST m
                 {filtro_movest}
             )
             UPDATE s
-            SET s.saldo = u.saldo_final
+            SET s.saldo = CASE
+                WHEN u.rn = 1 THEN u.saldo_final
+                ELSE 0
+            END
             FROM dbo.t_saldoit s
-            JOIN ultimos u
+            LEFT JOIN ultimos u
               ON u.rn = 1
              AND u.cditem = s.cditem
              AND u.cdemp = s.cdemp
@@ -342,7 +396,124 @@ def atualizar_saldos_finais(conn, codigo_item=None):
         ),
         params,
     )
-    return int(resultado.rowcount or 0)
+    if resultado.rowcount is not None and int(resultado.rowcount) > 0 and int(resultado.rowcount) != int(qtd_alvos):
+        return int(qtd_alvos)
+    return int(qtd_alvos)
+
+
+def atualizar_saldos_discrepantes(conn, df_discrepancias):
+    if df_discrepancias is None or df_discrepancias.empty:
+        return 0
+
+    possui_empitem = _tem_coluna(conn, "t_saldoit", "empitem")
+    usa_empitem = possui_empitem and "empitem" in df_discrepancias.columns
+    colunas = ["cditem", "cdemp", "esperado"]
+    if usa_empitem:
+        colunas.append("empitem")
+
+    df_update = df_discrepancias[colunas].copy()
+    df_update = df_update.dropna(subset=["cditem", "cdemp", "esperado"])
+
+    if usa_empitem:
+        df_update["empitem"] = pd.to_numeric(df_update["empitem"], errors="coerce").fillna(1).astype(int)
+    df_update["cditem"] = pd.to_numeric(df_update["cditem"], errors="coerce").astype(int)
+    df_update["cdemp"] = pd.to_numeric(df_update["cdemp"], errors="coerce").astype(int)
+    df_update["esperado"] = pd.to_numeric(df_update["esperado"], errors="coerce")
+
+    chave_cols = ["cditem", "cdemp"] + (["empitem"] if usa_empitem else [])
+    df_update = df_update.drop_duplicates(subset=chave_cols, keep="last")
+    if df_update.empty:
+        return 0
+
+    if usa_empitem:
+        sql = text(
+            """
+            UPDATE dbo.t_saldoit
+            SET saldo = :esperado
+            WHERE cditem = :cditem
+              AND cdemp = :cdemp
+              AND empitem = :empitem
+            """
+        )
+    else:
+        sql = text(
+            """
+            UPDATE dbo.t_saldoit
+            SET saldo = :esperado
+            WHERE cditem = :cditem
+              AND cdemp = :cdemp
+            """
+        )
+
+    registros = df_update.to_dict("records")
+    resultado = conn.execute(sql, registros)
+    if resultado.rowcount is not None and int(resultado.rowcount) > 0:
+        return int(resultado.rowcount)
+    return int(len(registros))
+
+
+def limpar_residuos_movest(conn, codigo_item=None):
+    filtros = []
+    params = {}
+    if codigo_item is not None:
+        filtros.append("m.cditem = :codigo_item")
+        params["codigo_item"] = codigo_item
+
+    where_base = f"WHERE {' AND '.join(filtros)}" if filtros else ""
+    where_item = (
+        f"{where_base} {'AND' if where_base else 'WHERE'} "
+        "NOT EXISTS (SELECT 1 FROM dbo.t_itens i WHERE i.cditem = m.cditem)"
+    )
+    where_emp = (
+        f"{where_base} {'AND' if where_base else 'WHERE'} "
+        "NOT EXISTS (SELECT 1 FROM dbo.t_emp e WHERE e.cdemp = m.cdemp)"
+    )
+    where_delete = (
+        f"{where_base} {'AND' if where_base else 'WHERE'} "
+        "("
+        "NOT EXISTS (SELECT 1 FROM dbo.t_itens i WHERE i.cditem = m.cditem) "
+        "OR NOT EXISTS (SELECT 1 FROM dbo.t_emp e WHERE e.cdemp = m.cdemp)"
+        ")"
+    )
+
+    qtd_cditem_invalido = conn.execute(
+        text(
+            f"""
+            SELECT COUNT(*)
+            FROM dbo.T_MOVEST m
+            {where_item}
+            """
+        ),
+        params,
+    ).scalar() or 0
+
+    qtd_cdemp_invalido = conn.execute(
+        text(
+            f"""
+            SELECT COUNT(*)
+            FROM dbo.T_MOVEST m
+            {where_emp}
+            """
+        ),
+        params,
+    ).scalar() or 0
+
+    resultado = conn.execute(
+        text(
+            f"""
+            DELETE m
+            FROM dbo.T_MOVEST m
+            {where_delete}
+            """
+        ),
+        params,
+    )
+
+    return {
+        "qtd_excluidos": int(resultado.rowcount or 0),
+        "qtd_cditem_invalido": int(qtd_cditem_invalido),
+        "qtd_cdemp_invalido": int(qtd_cdemp_invalido),
+    }
 
 
 def criar_copia_seguranca_t_saldoit(conn):
@@ -537,7 +708,7 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 key_meta[data["name"]] = (data["type_desc"], data["index_type_desc"])
                 order = " DESC" if data["is_descending_key"] else " ASC"
                 key_map[data["name"]]["defs"].append(f"{_q(data['column_name'])}{order}")
-                key_map[data["name"]]["column_names"].add(data["column_name"])
+                key_map[data["name"]]["column_names"].add(_normalizar_nome_coluna(data["column_name"]))
 
             fk_map = defaultdict(list)
             fk_meta = {}
@@ -556,7 +727,9 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 data = row._mapping
                 check_map[data["name"]]["definition"] = data["definition"]
                 if data["column_name"]:
-                    check_map[data["name"]]["column_names"].add(data["column_name"])
+                    check_map[data["name"]]["column_names"].add(
+                        _normalizar_nome_coluna(data["column_name"])
+                    )
 
             index_map = defaultdict(lambda: {"keys": [], "includes": [], "meta": None, "column_names": set()})
             for row in index_rows:
@@ -566,7 +739,9 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                     data["is_unique"],
                     data["filter_definition"],
                 )
-                index_map[data["name"]]["column_names"].add(data["column_name"])
+                index_map[data["name"]]["column_names"].add(
+                    _normalizar_nome_coluna(data["column_name"])
+                )
                 if data["is_included_column"]:
                     index_map[data["name"]]["includes"].append(_q(data["column_name"]))
                 else:
@@ -583,11 +758,11 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
             for item in check_map.values():
                 colunas_importantes.update(item["column_names"])
             for row in default_rows:
-                colunas_importantes.add(row._mapping["column_name"])
+                colunas_importantes.add(_normalizar_nome_coluna(row._mapping["column_name"]))
             for item in index_map.values():
                 colunas_importantes.update(item["column_names"])
             for pairs in fk_map.values():
-                colunas_importantes.update(parent for parent, _ in pairs)
+                colunas_importantes.update(_normalizar_nome_coluna(parent) for parent, _ in pairs)
 
             colunas_faltantes = [col for col in sorted(colunas_importantes) if col not in colunas_destino]
             for nome_coluna in colunas_faltantes:
@@ -649,7 +824,7 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 drop_scripts.append(f"ALTER TABLE {_table_name(tabela_origem)} DROP CONSTRAINT {_q(data['name'])}")
                 if data["name"] in default_constraints_inline:
                     continue
-                if data["column_name"] not in colunas_destino:
+                if _normalizar_nome_coluna(data["column_name"]) not in colunas_destino:
                     continue
                 create_scripts.append(
                     "ALTER TABLE "
@@ -677,7 +852,7 @@ def replicar_estrutura_t_movest(engine, tabela_origem, tabela_destino="T_MOVEST"
                 )
 
             for name, pairs in fk_map.items():
-                colunas_fk = {parent for parent, _ in pairs}
+                colunas_fk = {_normalizar_nome_coluna(parent) for parent, _ in pairs}
                 if not colunas_fk.issubset(colunas_destino):
                     continue
                 delete_action, update_action, ref_schema, ref_table = fk_meta[name]
