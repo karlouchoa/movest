@@ -296,6 +296,45 @@ def revisar_clifor_entradas(conn, codigo_item=None):
     return int(resultado.rowcount or 0)
 
 
+def revisar_clifor_vendas(conn, data_corte, codigo_item=None):
+    requisitos = [
+        ("T_MOVEST", "clifor"),
+        ("T_MOVEST", "especie"),
+        ("T_MOVEST", "numdoc"),
+        ("T_MOVEST", "cditem"),
+        ("T_VENDAS", "nrven_v"),
+        ("T_VENDAS", "cdcli_v"),
+        ("T_VENDAS", "emisven_v"),
+    ]
+    for tabela, coluna in requisitos:
+        if not conn.execute(text("SELECT COL_LENGTH(:tabela, :coluna)"), {"tabela": f"dbo.{tabela}", "coluna": coluna}).scalar():
+            return 0
+
+    filtro_item = ""
+    params = {"data_corte": data_corte}
+    if codigo_item is not None:
+        filtro_item = " AND m.cditem = :codigo_item"
+        params["codigo_item"] = codigo_item
+
+    resultado = conn.execute(
+        text(
+            f"""
+            UPDATE m
+            SET clifor = v.cdcli_v
+            FROM dbo.T_MOVEST m
+            INNER JOIN dbo.T_VENDAS v
+                ON m.numdoc = v.nrven_v
+            WHERE m.especie = 'V'
+              AND m.clifor <> v.cdcli_v
+              AND v.emisven_v >= :data_corte
+              {filtro_item}
+            """
+        ),
+        params,
+    )
+    return int(resultado.rowcount or 0)
+
+
 def preparar_colunas_para_insert(df_novos, colunas_destino):
     mapa_destino = {str(col).lower(): str(col) for col in colunas_destino}
 
@@ -979,6 +1018,11 @@ def main():
                 "   "
                 f"Discrepancias restantes apos ajuste opcional: {resumo_saldo['qtd_discrepancias']}"
             )
+
+    print("9) Aplicando ajuste final de clifor para vendas em T_MOVEST...")
+    with engine_atual.begin() as conn:
+        qtd_clifor_vendas = revisar_clifor_vendas(conn, data_corte, codigo_item=codigo_item)
+    print(f"   Registros com clifor ajustado a partir da t_vendas: {qtd_clifor_vendas}")
 
     print("Concluido com sucesso.")
 
