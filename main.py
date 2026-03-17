@@ -260,42 +260,6 @@ def excluir_movest_por_item(conn, codigo_item, data_corte):
     return int(resultado.rowcount or 0)
 
 
-def revisar_clifor_entradas(conn, codigo_item=None):
-    requisitos = [
-        ("T_MOVEST", "clifor"),
-        ("T_MOVEST", "st"),
-        ("T_MOVEST", "cditem"),
-        ("T_ITENS", "cditem"),
-        ("T_ITENS", "cdfor"),
-    ]
-    for tabela, coluna in requisitos:
-        if not conn.execute(text("SELECT COL_LENGTH(:tabela, :coluna)"), {"tabela": f"dbo.{tabela}", "coluna": coluna}).scalar():
-            return 0
-
-    filtro_item = ""
-    params = {}
-    if codigo_item is not None:
-        filtro_item = " AND m.cditem = :codigo_item"
-        params["codigo_item"] = codigo_item
-
-    resultado = conn.execute(
-        text(
-            f"""
-            UPDATE m
-            SET m.clifor = i.cdfor
-            FROM dbo.T_MOVEST m
-            INNER JOIN dbo.T_ITENS i
-                ON i.cditem = m.cditem
-            WHERE m.st = 'E'
-              AND ISNULL(i.cdfor, 0) <> ISNULL(m.clifor, 0)
-              {filtro_item}
-            """
-        ),
-        params,
-    )
-    return int(resultado.rowcount or 0)
-
-
 def revisar_clifor_vendas(conn, data_corte, codigo_item=None):
     requisitos = [
         ("T_MOVEST", "clifor"),
@@ -958,10 +922,6 @@ def main():
             f"cditem sem cadastro em t_itens: {limpeza_movest['qtd_cditem_invalido']} | "
             f"cdemp sem cadastro em t_emp: {limpeza_movest['qtd_cdemp_invalido']}"
         )
-
-        print("   Revisando clifor das entradas com base em t_itens.cdfor...")
-        qtd_clifor_revisado = revisar_clifor_entradas(conn, codigo_item=codigo_item)
-        print(f"   Registros com clifor revisado: {qtd_clifor_revisado}")
 
         print("   Criando copia de seguranca da t_saldoit antes do update final...")
         tabela_backup_saldoit = criar_copia_seguranca_t_saldoit(conn)
