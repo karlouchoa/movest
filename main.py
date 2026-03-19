@@ -745,17 +745,23 @@ def main():
     else:
         print("Importacao de ajustes de inventario: desabilitada.")
 
-    print("3) Carregando saldos iniciais do Bancobase.t_saldoit...")
-    q_saldoit = "SELECT cditem, cdemp, saldo FROM t_saldoit"
+    tabela_backup_saldoit = None
+    with engine_atual.begin() as conn:
+        print("3) Criando copia de seguranca da t_saldoit no Bancoatual...")
+        tabela_backup_saldoit = criar_copia_seguranca_t_saldoit(conn)
+    print(f"   Copia de seguranca criada: {tabela_backup_saldoit}")
+
+    print(f"4) Carregando saldos iniciais do Bancoatual.{tabela_backup_saldoit}...")
+    q_saldoit = f"SELECT cditem, cdemp, saldo FROM dbo.[{tabela_backup_saldoit}]"
     params_saldoit = None
     if codigo_item:
         q_saldoit += " WHERE cditem = :codigo_item"
         params_saldoit = {"codigo_item": codigo_item}
-    df_s_init = pd.read_sql(text(q_saldoit), engine_base, params=params_saldoit)
+    df_s_init = pd.read_sql(text(q_saldoit), engine_atual, params=params_saldoit)
     dict_geral = df_s_init.groupby("cditem")["saldo"].sum().to_dict()
     dict_emp = df_s_init.set_index(["cditem", "cdemp"])["saldo"].to_dict()
 
-    print("4) Extraindo movimentacoes do Bancoatual...")
+    print("5) Extraindo movimentacoes do Bancoatual...")
     df_novos = extrair_movimentacoes_novas(
         engine_atual,
         data_corte,
@@ -778,7 +784,7 @@ def main():
     df_novos = df_novos.sort_values(by=colunas_ordenacao).reset_index(drop=True)
     print(f"Registros encontrados: {len(df_novos)}")
 
-    print("5) Calculando saldoant e SldAntEmp...")
+    print("6) Calculando saldoant e SldAntEmp...")
     saldo_ant_geral = []
     saldo_ant_emp = []
     qtde_recalculada = []
@@ -936,8 +942,7 @@ def main():
                     f"delta_geral={exemplo['delta_geral']} delta_emp={exemplo['delta_emp']}"
                 )
 
-    print("6) Gravando em T_MOVEST e atualizando t_saldoit...")
-    tabela_backup_saldoit = None
+    print("7) Gravando em T_MOVEST e atualizando t_saldoit...")
     with engine_atual.begin() as conn:
         if codigo_item is not None:
             qtd_excluida = excluir_movest_por_item(conn, codigo_item, data_corte)
@@ -978,9 +983,7 @@ def main():
             f"cdemp sem cadastro em t_emp: {limpeza_movest['qtd_cdemp_invalido']}"
         )
 
-        print("   Criando copia de seguranca da t_saldoit antes do update final...")
-        tabela_backup_saldoit = criar_copia_seguranca_t_saldoit(conn)
-        print(f"   Copia de seguranca criada: {tabela_backup_saldoit}")
+        print(f"   Usando a copia de seguranca existente da t_saldoit: {tabela_backup_saldoit}")
 
         print("   Atualizando t_saldoit com base no ultimo movimento de cada item/empresa...")
         qtd_saldos_atualizados = atualizar_saldos_finais(
@@ -991,13 +994,13 @@ def main():
         print(f"   Registros atualizados em t_saldoit: {qtd_saldos_atualizados}")
 
     if codigo_item is None:
-        print("7) Recriando indices, constraints, PK, FK e triggers na nova T_MOVEST...")
+        print("8) Recriando indices, constraints, PK, FK e triggers na nova T_MOVEST...")
         caminho_script = replicar_estrutura_t_movest(engine_atual, tabela_inventario)
         print(f"Script SQL salvo em: {caminho_script}")
     else:
-        print("7) Processamento por item concluido sem recriacao de objetos da tabela.")
+        print("8) Processamento por item concluido sem recriacao de objetos da tabela.")
 
-    print("8) Validando discrepancias entre t_saldoit e o ultimo registro da T_MOVEST...")
+    print("9) Validando discrepancias entre t_saldoit e o ultimo registro da T_MOVEST...")
     df_discrepancias_saldo, resumo_saldo = auditar_saldos_pos_update(
         engine_atual,
         data_corte,
@@ -1034,7 +1037,7 @@ def main():
                 f"Discrepancias restantes apos ajuste opcional: {resumo_saldo['qtd_discrepancias']}"
             )
 
-    print("9) Aplicando ajuste final de clifor para PDC e vendas em T_MOVEST...")
+    print("10) Aplicando ajuste final de clifor para PDC e vendas em T_MOVEST...")
     with engine_atual.begin() as conn:
         qtd_clifor_pdc = revisar_clifor_pdc(conn, data_corte, codigo_item=codigo_item)
         qtd_clifor_vendas = revisar_clifor_vendas(conn, data_corte, codigo_item=codigo_item)
